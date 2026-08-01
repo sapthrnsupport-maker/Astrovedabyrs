@@ -1,0 +1,6 @@
+{
+  "name": "AstroVeda - AI Kundali & Astrology Consultation",
+  "description": "Vedic Kundali generator, AI Astrologer chatbot with timed consultation minutes, admin minute recharge system, Moolank & Bhagyank numerology, and Gun Milan compatibility.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
