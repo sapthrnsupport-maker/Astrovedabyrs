@@ -1,8 +1,9 @@
-import { UserProfile, RechargePlan, RechargeTransaction } from '../types';
+import { UserProfile, RechargePlan, RechargeTransaction, UserActivityLog } from '../types';
 
-const STORAGE_USERS_KEY = 'astroveda_users_v1';
-const STORAGE_CURRENT_ID_KEY = 'astroveda_active_userid_v1';
-const STORAGE_LOGS_KEY = 'astroveda_tx_logs_v1';
+const STORAGE_USERS_KEY = 'astroveda_users_v2';
+const STORAGE_CURRENT_ID_KEY = 'astroveda_active_userid_v2';
+const STORAGE_LOGS_KEY = 'astroveda_tx_logs_v2';
+const STORAGE_ACTIVITY_KEY = 'astroveda_activity_logs_v2';
 
 export const RECHARGE_PLANS: RechargePlan[] = [
   {
@@ -41,9 +42,10 @@ export const RECHARGE_PLANS: RechargePlan[] = [
 ];
 
 const DEFAULT_USERS: { [id: string]: UserProfile } = {
-  'USER-9821': {
-    id: 'USER-9821',
+  '880101': {
+    id: '880101',
     name: 'Rahul Sharma',
+    pin: '1234',
     gender: 'male',
     dob: '1996-08-15',
     tob: '10:30',
@@ -52,9 +54,10 @@ const DEFAULT_USERS: { [id: string]: UserProfile } = {
     totalRechargedMinutes: 15,
     createdAt: new Date().toISOString()
   },
-  'USER-4412': {
-    id: 'USER-4412',
+  '904212': {
+    id: '904212',
     name: 'Priya Patel',
+    pin: '1234',
     gender: 'female',
     dob: '1998-11-23',
     tob: '18:45',
@@ -68,7 +71,7 @@ const DEFAULT_USERS: { [id: string]: UserProfile } = {
 const DEFAULT_LOGS: RechargeTransaction[] = [
   {
     id: 'tx_init_1',
-    userId: 'USER-9821',
+    userId: '880101',
     userName: 'Rahul Sharma',
     minutesAdded: 15,
     amountPaid: 0,
@@ -80,7 +83,7 @@ const DEFAULT_LOGS: RechargeTransaction[] = [
   },
   {
     id: 'tx_init_2',
-    userId: 'USER-4412',
+    userId: '904212',
     userName: 'Priya Patel',
     minutesAdded: 30,
     amountPaid: 249,
@@ -115,12 +118,12 @@ export function saveUsersDb(users: { [id: string]: UserProfile }) {
 export function getActiveUserId(): string {
   try {
     const id = localStorage.getItem(STORAGE_CURRENT_ID_KEY);
-    if (id) return id;
-    const firstId = Object.keys(getUsersDb())[0] || 'USER-9821';
+    if (id && getUsersDb()[id]) return id;
+    const firstId = Object.keys(getUsersDb())[0] || '880101';
     localStorage.setItem(STORAGE_CURRENT_ID_KEY, firstId);
     return firstId;
   } catch (e) {
-    return 'USER-9821';
+    return '880101';
   }
 }
 
@@ -137,21 +140,80 @@ export function getActiveUserProfile(): UserProfile {
   const id = getActiveUserId();
   if (users[id]) return users[id];
 
-  // If active ID doesn't exist, create it
+  const firstId = Object.keys(users)[0];
+  if (firstId) {
+    setActiveUserId(firstId);
+    return users[firstId];
+  }
+
+  // If no user exists, create default
   const newProfile: UserProfile = {
-    id,
+    id: '880101',
     name: 'Astro Seeker',
+    pin: '1234',
     gender: 'male',
     dob: '1998-05-15',
     tob: '12:00',
     pob: 'Mumbai, India',
-    availableMinutes: 10,
-    totalRechargedMinutes: 10,
+    availableMinutes: 15,
+    totalRechargedMinutes: 15,
     createdAt: new Date().toISOString()
   };
-  users[id] = newProfile;
+  users['880101'] = newProfile;
   saveUsersDb(users);
+  setActiveUserId('880101');
   return newProfile;
+}
+
+// Live lookup of existing user by User ID
+export function fetchUserById(userId: string): UserProfile | null {
+  if (!userId) return null;
+  const users = getUsersDb();
+  const clean = userId.trim().toUpperCase();
+  return users[clean] || null;
+}
+
+export function changeUserPin(
+  userId: string,
+  currentPin: string,
+  newPin: string
+): { success: boolean; message: string } {
+  const users = getUsersDb();
+  const cleanId = userId.trim().toUpperCase();
+  const user = users[cleanId];
+  if (!user) {
+    return { success: false, message: 'User account not found.' };
+  }
+
+  const existingPin = user.pin || '1234';
+  if (currentPin.trim() !== existingPin.trim()) {
+    return { success: false, message: 'Current Security PIN / Password is incorrect!' };
+  }
+
+  if (!newPin.trim()) {
+    return { success: false, message: 'New Security PIN / Password cannot be empty.' };
+  }
+
+  users[cleanId].pin = newPin.trim();
+  saveUsersDb(users);
+  return { success: true, message: 'Security PIN / Password updated successfully!' };
+}
+
+export function adminResetUserPin(
+  userId: string,
+  newPin: string
+): { success: boolean; message: string } {
+  const users = getUsersDb();
+  const cleanId = userId.trim().toUpperCase();
+  if (!users[cleanId]) {
+    return { success: false, message: `User ID '${cleanId}' not found.` };
+  }
+  if (!newPin.trim()) {
+    return { success: false, message: 'PIN cannot be empty.' };
+  }
+  users[cleanId].pin = newPin.trim();
+  saveUsersDb(users);
+  return { success: true, message: `PIN updated successfully for ${users[cleanId].name} (${cleanId})!` };
 }
 
 export function updateUserProfile(updated: Partial<UserProfile>) {
@@ -163,13 +225,80 @@ export function updateUserProfile(updated: Partial<UserProfile>) {
   }
 }
 
-export function createNewUser(id: string, name: string, initialMinutes = 10): UserProfile {
+// Validate User Name (must contain alphabetic letters, not pure numbers)
+export function validateUserName(name: string): { isValid: boolean; error?: string } {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return { isValid: false, error: 'Name cannot be empty.' };
+  }
+  if (/^\d+$/.test(trimmed)) {
+    return { isValid: false, error: 'Invalid Name! Name cannot be numbers only (e.g., 1234). Please enter a real name.' };
+  }
+  if (!/[a-zA-Z]/.test(trimmed)) {
+    return { isValid: false, error: 'Name must contain actual alphabetic letters (e.g., Rohit, Rahul).' };
+  }
+  return { isValid: true };
+}
+
+// Generate unique 6-digit numeric User ID
+export function generateNumericUserId(): string {
   const users = getUsersDb();
-  const formattedId = id.trim().toUpperCase() || `USER-${Math.floor(1000 + Math.random() * 9000)}`;
+  let id = '';
+  do {
+    id = Math.floor(100000 + Math.random() * 900000).toString();
+  } while (users[id]);
+  return id;
+}
+
+// Verify User Password / PIN for Account Switch / Login
+export function verifyUserPin(userId: string, pinInput: string): { success: boolean; message: string; user?: UserProfile } {
+  const user = fetchUserById(userId);
+  if (!user) {
+    return { success: false, message: `User ID '${userId}' does not exist.` };
+  }
+  
+  // Default PIN if none set is '1234'
+  const userPin = user.pin || '1234';
+  if (pinInput.trim() !== userPin.trim()) {
+    return { success: false, message: 'Incorrect Security PIN / Password! Access denied.' };
+  }
+
+  setActiveUserId(user.id);
+  return {
+    success: true,
+    message: `Logged in successfully as ${user.name} (${user.id})!`,
+    user
+  };
+}
+
+export function createNewUser(id?: string, name?: string, initialMinutes = 15, userPin = '1234'): UserProfile {
+  const users = getUsersDb();
+  const rawName = name && name.trim() ? name.trim() : 'Astro Seeker';
+  
+  // Validate name
+  const nameCheck = validateUserName(rawName);
+  if (!nameCheck.isValid) {
+    throw new Error(nameCheck.error || 'Invalid name provided.');
+  }
+
+  let formattedId = id ? id.trim().toUpperCase() : '';
+
+  // Check if ID already exists!
+  if (formattedId && users[formattedId]) {
+    const existing = users[formattedId];
+    throw new Error(
+      `User ID '${formattedId}' ALREADY EXISTS (${existing.name})! To access this existing account, please log in with Security PIN.`
+    );
+  }
+
+  if (!formattedId) {
+    formattedId = generateNumericUserId();
+  }
 
   const profile: UserProfile = {
     id: formattedId,
-    name: name.trim() || 'Astro User',
+    name: rawName,
+    pin: userPin.trim() || '1234',
     gender: 'male',
     dob: '1998-01-01',
     tob: '12:00',
@@ -191,22 +320,16 @@ export function purchaseMinutesForProfile(
   plan: RechargePlan,
   paymentMethod: string = 'UPI / GPay',
   discountAmount: number = 0
-): { success: boolean; newBalance: number; targetUser: UserProfile } {
+): { success: boolean; newBalance: number; targetUser?: UserProfile; message?: string } {
   const users = getUsersDb();
   const cleanId = targetProfileId.trim().toUpperCase() || getActiveUserId();
-  let targetUser = users[cleanId];
+  const targetUser = users[cleanId];
 
   if (!targetUser) {
-    targetUser = {
-      id: cleanId,
-      name: `User ${cleanId}`,
-      gender: 'male',
-      dob: '1998-01-01',
-      tob: '12:00',
-      pob: 'India',
-      availableMinutes: 0,
-      totalRechargedMinutes: 0,
-      createdAt: new Date().toISOString()
+    return {
+      success: false,
+      newBalance: 0,
+      message: `User ID '${cleanId}' does not exist.`
     };
   }
 
@@ -236,41 +359,41 @@ export function purchaseMinutesForProfile(
 }
 
 // In-App Self Purchase of Minutes
-export function purchaseMinutesSelf(plan: RechargePlan): { success: boolean; newBalance: number } {
+export function purchaseMinutesSelf(plan: RechargePlan): { success: boolean; newBalance: number; message?: string } {
   const activeId = getActiveUserId();
   const res = purchaseMinutesForProfile(activeId, plan, 'In-App Payment (UPI / Cards)');
-  return { success: res.success, newBalance: res.newBalance };
+  return { success: res.success, newBalance: res.newBalance, message: res.message };
 }
 
-// Admin / Astrologer ID Recharge function ("mai kisi ki id dalunga or jitne minutes dunga utna usko allow ho jaega")
+// Admin / Astrologer ID Recharge function
+// STRICT CHECK: Reject if User ID does NOT exist!
 export function adminRechargeUser(
   targetUserId: string,
-  minutesToAdd: number,
+  minutesAmount: number,
   grantedBy: string = 'Astrologer Admin',
-  note: string = 'Admin Manual Grant'
+  note: string = 'Admin Manual Adjustment',
+  actionType: 'ADD' | 'DEDUCT' = 'ADD'
 ): { success: boolean; message: string; user?: UserProfile } {
   const users = getUsersDb();
   const cleanId = targetUserId.trim().toUpperCase();
 
-  let targetUser = users[cleanId];
+  const targetUser = users[cleanId];
 
-  // If user ID doesn't exist yet, automatically create profile with this ID!
+  // STRICT REJECTION: Do NOT auto-create profile if ID does not exist
   if (!targetUser) {
-    targetUser = {
-      id: cleanId,
-      name: `User ${cleanId}`,
-      gender: 'male',
-      dob: '1998-01-01',
-      tob: '12:00',
-      pob: 'India',
-      availableMinutes: 0,
-      totalRechargedMinutes: 0,
-      createdAt: new Date().toISOString()
+    return {
+      success: false,
+      message: `❌ Error: User ID '${cleanId}' does NOT exist in the system! Please verify the ID or create the account first.`
     };
   }
 
-  targetUser.availableMinutes += minutesToAdd;
-  targetUser.totalRechargedMinutes += minutesToAdd;
+  if (actionType === 'ADD') {
+    targetUser.availableMinutes += minutesAmount;
+    targetUser.totalRechargedMinutes += minutesAmount;
+  } else {
+    targetUser.availableMinutes = Math.max(0, targetUser.availableMinutes - minutesAmount);
+  }
+
   users[cleanId] = targetUser;
   saveUsersDb(users);
 
@@ -279,20 +402,73 @@ export function adminRechargeUser(
     id: `tx_admin_${Date.now()}`,
     userId: cleanId,
     userName: targetUser.name,
-    minutesAdded: minutesToAdd,
+    minutesAdded: actionType === 'ADD' ? minutesAmount : -minutesAmount,
     amountPaid: 0,
     type: 'ADMIN_GRANT',
-    method: 'Admin Panel Allocation',
+    method: actionType === 'ADD' ? 'Admin Minutes Credit (+)' : 'Admin Minutes Debit (-)',
     grantedBy: grantedBy,
     note: note,
     timestamp: new Date().toISOString()
   });
 
+  const msg = actionType === 'ADD'
+    ? `Successfully added +${minutesAmount} consultation minutes to User ID: ${cleanId}. New Balance: ${targetUser.availableMinutes} mins.`
+    : `Successfully deducted -${minutesAmount} consultation minutes from User ID: ${cleanId}. New Balance: ${targetUser.availableMinutes} mins.`;
+
   return {
     success: true,
-    message: `Successfully granted ${minutesToAdd} consultation minutes to User ID: ${cleanId}. New Balance: ${targetUser.availableMinutes} mins.`,
+    message: msg,
     user: targetUser
   };
+}
+
+// Google Sign-In Integration helper
+export function loginWithGoogleAccount(googleEmail: string, googleName: string): UserProfile {
+  const users = getUsersDb();
+  
+  // Find if email already associated with an existing account
+  const existingUser = Object.values(users).find(u => u.email === googleEmail);
+  if (existingUser) {
+    setActiveUserId(existingUser.id);
+    return existingUser;
+  }
+
+  // Assign numeric Google ID e.g. 908214
+  const googleId = `90${Math.floor(1000 + Math.random() * 9000)}`;
+
+  let user = users[googleId];
+  if (!user) {
+    user = {
+      id: googleId,
+      email: googleEmail,
+      name: googleName && /[a-zA-Z]/.test(googleName) ? googleName : googleEmail.split('@')[0],
+      gender: 'male',
+      dob: '1998-06-15',
+      tob: '12:00',
+      pob: 'Delhi, India',
+      availableMinutes: 15, // Google Sign-In Welcome Bonus
+      totalRechargedMinutes: 15,
+      createdAt: new Date().toISOString()
+    };
+    users[googleId] = user;
+    saveUsersDb(users);
+
+    addTransactionLog({
+      id: `tx_google_${Date.now()}`,
+      userId: googleId,
+      userName: user.name,
+      minutesAdded: 15,
+      amountPaid: 0,
+      type: 'ADMIN_GRANT',
+      method: 'Google Account Sign-In Bonus',
+      grantedBy: 'System Google Auth',
+      note: `Google Sign-In (${googleEmail}) Welcome Bonus`,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  setActiveUserId(googleId);
+  return user;
 }
 
 // Deduct 1 minute during active consultation or reading
@@ -310,6 +486,88 @@ export function deductConsultationMinute(): { hasMinutes: boolean; remainingMinu
   saveUsersDb(users);
 
   return { hasMinutes: user.availableMinutes > 0, remainingMinutes: user.availableMinutes };
+}
+
+// Delete user account function (for Admin Panel)
+export function deleteUserAccount(targetUserId: string): { success: boolean; message: string } {
+  const users = getUsersDb();
+  const cleanId = targetUserId.trim().toUpperCase();
+
+  if (!users[cleanId]) {
+    return { success: false, message: `User ID '${cleanId}' not found.` };
+  }
+
+  const deletedUserName = users[cleanId].name;
+  delete users[cleanId];
+  saveUsersDb(users);
+
+  // If deleted user was active, switch active ID to another existing user
+  const remainingIds = Object.keys(users);
+  if (getActiveUserId() === cleanId) {
+    if (remainingIds.length > 0) {
+      setActiveUserId(remainingIds[0]);
+    } else {
+      // create a default fallback user
+      const fallback = createNewUser('USER-DEFAULT', 'Guest Astro User');
+      setActiveUserId(fallback.id);
+    }
+  }
+
+  addTransactionLog({
+    id: `tx_del_${Date.now()}`,
+    userId: cleanId,
+    userName: deletedUserName,
+    minutesAdded: 0,
+    amountPaid: 0,
+    type: 'ADMIN_GRANT',
+    method: 'Account Deletion',
+    grantedBy: 'Admin Control Panel',
+    note: `User Account ${cleanId} permanently deleted by Admin.`,
+    timestamp: new Date().toISOString()
+  });
+
+  return {
+    success: true,
+    message: `User account '${deletedUserName}' (${cleanId}) successfully deleted.`
+  };
+}
+
+// Directly set user minutes balance
+export function updateUserMinutesDirectly(
+  targetUserId: string,
+  newMinutesBalance: number
+): { success: boolean; message: string; user?: UserProfile } {
+  const users = getUsersDb();
+  const cleanId = targetUserId.trim().toUpperCase();
+
+  if (!users[cleanId]) {
+    return { success: false, message: `User ID '${cleanId}' not found.` };
+  }
+
+  const targetUser = users[cleanId];
+  const oldVal = targetUser.availableMinutes;
+  targetUser.availableMinutes = Math.max(0, newMinutesBalance);
+  users[cleanId] = targetUser;
+  saveUsersDb(users);
+
+  addTransactionLog({
+    id: `tx_set_${Date.now()}`,
+    userId: cleanId,
+    userName: targetUser.name,
+    minutesAdded: targetUser.availableMinutes - oldVal,
+    amountPaid: 0,
+    type: 'ADMIN_GRANT',
+    method: 'Direct Balance Override',
+    grantedBy: 'Admin Control Panel',
+    note: `Balance updated directly from ${oldVal}m to ${targetUser.availableMinutes}m.`,
+    timestamp: new Date().toISOString()
+  });
+
+  return {
+    success: true,
+    message: `Set User ID ${cleanId} balance to ${targetUser.availableMinutes} mins.`,
+    user: targetUser
+  };
 }
 
 export function getTransactionLogs(): RechargeTransaction[] {
@@ -334,3 +592,71 @@ function addTransactionLog(log: RechargeTransaction) {
     console.error('Error saving tx logs:', e);
   }
 }
+
+const DEFAULT_ACTIVITY_LOGS: UserActivityLog[] = [
+  {
+    id: 'act_1',
+    userId: '880101',
+    userName: 'Rahul Sharma',
+    action: 'Asked AI Astrologer',
+    details: 'Meri ex mere paas wapas aayegi ya nahi? Closure ki astrological prediction batayein.',
+    timestamp: new Date(Date.now() - 3600000 * 1).toISOString()
+  },
+  {
+    id: 'act_2',
+    userId: '904212',
+    userName: 'Priya Patel',
+    action: 'Asked AI Astrologer',
+    details: 'Mere 10th House aur Sun/Saturn placements ke hisab se konsi career field best rahegi?',
+    timestamp: new Date(Date.now() - 3600000 * 3).toISOString()
+  },
+  {
+    id: 'act_3',
+    userId: '880101',
+    userName: 'Rahul Sharma',
+    action: 'Generated Kundali PDF',
+    details: 'Viewed Dasha & Planet Chart for Rahul Sharma (1996-08-15)',
+    timestamp: new Date(Date.now() - 3600000 * 5).toISOString()
+  }
+];
+
+export function getUserActivityLogs(): UserActivityLog[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_ACTIVITY_KEY);
+    if (!raw) {
+      localStorage.setItem(STORAGE_ACTIVITY_KEY, JSON.stringify(DEFAULT_ACTIVITY_LOGS));
+      return DEFAULT_ACTIVITY_LOGS;
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    return DEFAULT_ACTIVITY_LOGS;
+  }
+}
+
+export function addUserActivityLog(userId: string, userName: string, action: string, details: string) {
+  if (!userId || !details) return;
+  const logs = getUserActivityLogs();
+  const newLog: UserActivityLog = {
+    id: `act_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+    userId: userId.trim().toUpperCase(),
+    userName: userName.trim(),
+    action: action,
+    details: details.trim(),
+    timestamp: new Date().toISOString()
+  };
+  logs.unshift(newLog);
+  try {
+    localStorage.setItem(STORAGE_ACTIVITY_KEY, JSON.stringify(logs.slice(0, 300)));
+  } catch (e) {
+    console.error('Error saving activity log:', e);
+  }
+}
+
+export function clearUserActivityLogs() {
+  try {
+    localStorage.setItem(STORAGE_ACTIVITY_KEY, JSON.stringify([]));
+  } catch (e) {
+    console.error('Error clearing activity logs:', e);
+  }
+}
+

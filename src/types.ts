@@ -1,6 +1,8 @@
 export interface UserProfile {
   id: string;
   name: string;
+  email?: string;
+  pin?: string; // 4-digit Security PIN for account access verification
   gender: 'male' | 'female' | 'other';
   dob: string; // YYYY-MM-DD
   tob: string; // HH:MM
@@ -107,3 +109,13 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
 }
+
+export interface UserActivityLog {
+  id: string;
+  userId: string;
+  userName: string;
+  action: string;
+  details: string;
+  timestamp: string;
+}
+

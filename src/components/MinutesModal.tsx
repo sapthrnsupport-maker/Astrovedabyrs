@@ -96,9 +96,26 @@ export const MinutesModal: React.FC<MinutesModalProps> = ({
   // Admin Grant State
   const [adminTargetUserId, setAdminTargetUserId] = useState(userProfile.id);
   const [grantMinutes, setGrantMinutes] = useState(30);
+  const [modalActionType, setModalActionType] = useState<'ADD' | 'DEDUCT'>('ADD');
   const [grantedByInput, setGrantedByInput] = useState('Astrologer Guruji');
   const [grantNoteInput, setGrantNoteInput] = useState('Vedic Consultation Extended Access');
   const [adminSuccessMsg, setAdminSuccessMsg] = useState('');
+
+  // Passcode Security for Admin Grant Tab
+  const [modalAdminPasscode, setModalAdminPasscode] = useState('');
+  const [isModalAdminAuth, setIsModalAdminAuth] = useState(false);
+  const [modalAuthError, setModalAuthError] = useState('');
+
+  const handleVerifyModalPasscode = (e: React.FormEvent) => {
+    e.preventDefault();
+    const validCodes = ['9905122139', '8800', '7860', '1008'];
+    if (validCodes.includes(modalAdminPasscode.trim())) {
+      setIsModalAdminAuth(true);
+      setModalAuthError('');
+    } else {
+      setModalAuthError('Incorrect Passcode! Access denied. Please enter a valid Admin Passcode.');
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -154,16 +171,25 @@ export const MinutesModal: React.FC<MinutesModalProps> = ({
   // Submit Mock Checkout
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    let createdId = resolvedTargetId;
+
+    // If new profile type, ensure created in DB with valid name check
+    if (targetProfileType === 'NEW') {
+      try {
+        const nu = createNewUser(newProfileIdInput.trim(), newProfileNameInput.trim() || 'New Client', 0);
+        createdId = nu.id;
+      } catch (err: any) {
+        alert(err.message || 'Invalid User Name. Please enter a valid name.');
+        return;
+      }
+    }
+
     setCheckoutStage('PROCESSING');
     setProcessingStepText('Connecting to Bank Secure Gateway...');
 
-    // If new profile type, ensure created in DB
-    if (targetProfileType === 'NEW' && newProfileIdInput.trim()) {
-      createNewUser(newProfileIdInput, newProfileNameInput || 'New Client', 0);
-    }
-
     setTimeout(() => {
-      setProcessingStepText(`Verifying entitlement for ${resolvedTargetId}...`);
+      setProcessingStepText(`Verifying entitlement for ${createdId}...`);
       setTimeout(() => {
         setProcessingStepText(`Crediting ${selectedPlan.minutes} Mins access time...`);
         setTimeout(() => {
@@ -173,11 +199,17 @@ export const MinutesModal: React.FC<MinutesModalProps> = ({
           if (paymentMethod === 'wallet') methodLabel = 'Paytm Wallet';
 
           const res = purchaseMinutesForProfile(
-            resolvedTargetId,
+            createdId,
             selectedPlan,
             methodLabel,
             discountAmount
           );
+
+          if (!res.success || !res.targetUser) {
+            alert(res.message || 'Payment processing failed. User ID not found.');
+            setCheckoutStage('FORM');
+            return;
+          }
 
           const txnId = `TXN-${Math.floor(10000000 + Math.random() * 90000000)}`;
           setCompletedTxn({
@@ -205,10 +237,18 @@ export const MinutesModal: React.FC<MinutesModalProps> = ({
 
     if (!adminTargetUserId.trim() || grantMinutes <= 0) return;
 
-    const res = adminRechargeUser(adminTargetUserId, grantMinutes, grantedByInput, grantNoteInput);
+    const res = adminRechargeUser(
+      adminTargetUserId,
+      grantMinutes,
+      grantedByInput,
+      grantNoteInput || (modalActionType === 'ADD' ? 'Admin Minutes Grant' : 'Admin Minutes Deduction'),
+      modalActionType
+    );
     if (res.success) {
       setAdminSuccessMsg(`✅ ${res.message}`);
       onRefreshProfile();
+    } else {
+      setAdminSuccessMsg(`${res.message}`);
     }
   };
 
@@ -283,102 +323,21 @@ export const MinutesModal: React.FC<MinutesModalProps> = ({
                       <span>1. Select Profile to Extend Access</span>
                     </label>
 
-                    {/* Radio Options for Profile Selection */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => setTargetProfileType('SELF')}
-                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                          targetProfileType === 'SELF'
-                            ? 'bg-indigo-500/20 border-indigo-400 text-white font-bold'
-                            : 'bg-black/30 border-white/5 text-gray-400 hover:border-white/15'
-                        }`}
-                      >
-                        <div className="text-[10px] text-indigo-300 font-mono mb-0.5">Active Profile</div>
-                        <div className="truncate font-semibold">{userProfile.name}</div>
-                        <div className="text-[10px] text-gray-400 font-mono">{userProfile.id}</div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setTargetProfileType('SAVED')}
-                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                          targetProfileType === 'SAVED'
-                            ? 'bg-indigo-500/20 border-indigo-400 text-white font-bold'
-                            : 'bg-black/30 border-white/5 text-gray-400 hover:border-white/15'
-                        }`}
-                      >
-                        <div className="text-[10px] text-indigo-300 font-mono mb-0.5">Saved Profiles</div>
-                        <div className="truncate font-semibold">Select Existing</div>
-                        <div className="text-[10px] text-gray-400">{allSavedProfiles.length} profiles stored</div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setTargetProfileType('NEW')}
-                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                          targetProfileType === 'NEW'
-                            ? 'bg-indigo-500/20 border-indigo-400 text-white font-bold'
-                            : 'bg-black/30 border-white/5 text-gray-400 hover:border-white/15'
-                        }`}
-                      >
-                        <div className="text-[10px] text-indigo-300 font-mono mb-0.5">Gift Access</div>
-                        <div className="truncate font-semibold">+ Enter Custom ID</div>
-                        <div className="text-[10px] text-gray-400">Specify ID / Name</div>
-                      </button>
-                    </div>
-
-                    {/* Saved Profile Dropdown */}
-                    {targetProfileType === 'SAVED' && (
-                      <div className="pt-2">
-                        <select
-                          value={selectedSavedId}
-                          onChange={(e) => setSelectedSavedId(e.target.value)}
-                          className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
-                        >
-                          {allSavedProfiles.map((p) => (
-                            <option key={p.id} value={p.id} className="bg-slate-900 text-white">
-                              {p.name} ({p.id}) — {p.availableMinutes} Mins Balance
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    {/* New Profile Fields */}
-                    {targetProfileType === 'NEW' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
-                        <input
-                          type="text"
-                          value={newProfileIdInput}
-                          onChange={(e) => setNewProfileIdInput(e.target.value)}
-                          placeholder="Target Profile ID (e.g. USER-8800)"
-                          className="px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-indigo-500"
-                          required
-                        />
-                        <input
-                          type="text"
-                          value={newProfileNameInput}
-                          onChange={(e) => setNewProfileNameInput(e.target.value)}
-                          placeholder="Profile Full Name (e.g. Ananya)"
-                          className="px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
-                        />
-                      </div>
-                    )}
-
-                    {/* Target Profile Summary Badge */}
-                    <div className="flex items-center justify-between p-3 rounded-2xl bg-black/30 border border-white/5 text-xs">
+                    {/* Active Account Banner for User Buy */}
+                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-xs">
                       <div>
-                        <span className="text-gray-400 block text-[10px]">Target Entitlement Account</span>
-                        <span className="font-bold text-white">{resolvedTargetName}</span>
-                        <span className="text-gray-400 font-mono ml-2">({resolvedTargetId})</span>
+                        <span className="text-gray-400 block text-[10px] uppercase font-mono tracking-wider">
+                          Recharging Active Account (Your ID)
+                        </span>
+                        <span className="font-bold text-white text-sm">{userProfile.name}</span>
+                        <span className="text-indigo-300 font-mono ml-2">({userProfile.id})</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-gray-400 block text-[10px]">Access Projection</span>
-                        <span className="font-bold text-emerald-400">
-                          {resolvedCurrentBalance} Mins <ArrowRight className="inline w-3 h-3 text-gray-500 mx-0.5" />{' '}
-                          <span className="text-indigo-300 font-extrabold">
-                            {resolvedCurrentBalance + selectedPlan.minutes} Mins
+                        <span className="text-gray-400 block text-[10px]">Balance Projection</span>
+                        <span className="font-bold text-emerald-400 text-xs">
+                          {userProfile.availableMinutes} Mins <ArrowRight className="inline w-3 h-3 text-gray-500 mx-0.5" />{' '}
+                          <span className="text-indigo-300 font-extrabold text-sm">
+                            {userProfile.availableMinutes + selectedPlan.minutes} Mins
                           </span>
                         </span>
                       </div>
@@ -716,15 +675,61 @@ export const MinutesModal: React.FC<MinutesModalProps> = ({
           {/* TAB 2: ASTROLOGER ADMIN DIRECT ALLOCATION */}
           {activeTab === 'ADMIN_GRANT' && (
             <div className="space-y-5">
-              <div className="bg-purple-500/20 border border-purple-500/30 rounded-2xl p-4 text-xs text-purple-200 space-y-1">
-                <div className="font-bold text-white flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-purple-300" />
-                  <span>Astrologer Admin Access Control</span>
+              {!isModalAdminAuth ? (
+                <div className="p-6 bg-black/40 border border-purple-500/30 rounded-3xl space-y-4 text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-400/30 flex items-center justify-center text-purple-300 mx-auto">
+                    <Lock className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-white font-serif text-base">Protected Admin Access</h4>
+                    <p className="text-xs text-gray-300 mt-1">
+                      Enter secret Admin Security Passcode to authorize direct consultation time allocation.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleVerifyModalPasscode} className="space-y-3 max-w-sm mx-auto">
+                    <input
+                      type="password"
+                      value={modalAdminPasscode}
+                      onChange={(e) => {
+                        setModalAdminPasscode(e.target.value);
+                        if (modalAuthError) setModalAuthError('');
+                      }}
+                      placeholder="Enter Admin Passcode"
+                      className="w-full px-4 py-2.5 bg-black/60 border border-white/10 rounded-xl text-xs text-white text-center font-mono tracking-widest focus:outline-none focus:border-purple-500"
+                      required
+                    />
+
+                    {modalAuthError && (
+                      <p className="text-[11px] text-rose-400 bg-rose-500/10 p-2 rounded-xl border border-rose-500/20">
+                        {modalAuthError}
+                      </p>
+                    )}
+
+                    <button
+                      type="submit"
+                      className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-xs hover:brightness-110 cursor-pointer shadow-lg shadow-purple-600/30"
+                    >
+                      Unlock Admin Grant Panel
+                    </button>
+                  </form>
                 </div>
-                <p className="text-purple-200/80">
-                  Enter any User ID below and specify the consultation minutes to grant. The target account will instantly receive the allocated minutes.
-                </p>
-              </div>
+              ) : (
+                <>
+                  <div className="bg-purple-500/20 border border-purple-500/30 rounded-2xl p-4 text-xs text-purple-200 space-y-1">
+                    <div className="font-bold text-white flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-purple-300" />
+                        <span>Astrologer Admin Access Control</span>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                        Authorized Admin Session
+                      </span>
+                    </div>
+                    <p className="text-purple-200/80">
+                      Enter any User ID below and specify the consultation minutes to grant. The target account will instantly receive the allocated minutes.
+                    </p>
+                  </div>
 
               {adminSuccessMsg && (
                 <div className="p-3 bg-emerald-500/20 border border-emerald-500/30 rounded-2xl text-xs text-emerald-200 flex items-center gap-2">
@@ -734,55 +739,71 @@ export const MinutesModal: React.FC<MinutesModalProps> = ({
               )}
 
               <form onSubmit={handleAdminGrantSubmit} className="space-y-4">
+                {/* Action Mode Toggle */}
+                <div>
+                  <label className="text-xs font-semibold text-gray-300 mb-1 block">Select Admin Action</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setModalActionType('ADD')}
+                      className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                        modalActionType === 'ADD'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-md'
+                          : 'bg-black/30 text-gray-400 border-white/10'
+                      }`}
+                    >
+                      + Add Minutes (Credit)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModalActionType('DEDUCT')}
+                      className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                        modalActionType === 'DEDUCT'
+                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 shadow-md'
+                          : 'bg-black/30 text-gray-400 border-white/10'
+                      }`}
+                    >
+                      - Remove Minutes (Debit)
+                    </button>
+                  </div>
+                </div>
+
                 {/* Target User ID Input */}
                 <div>
                   <label className="text-xs font-semibold text-gray-300 mb-1 flex items-center justify-between">
-                    <span>Target User ID (Enter ID or Select Existing)</span>
+                    <span>Target User ID</span>
                     <span className="text-[10px] text-purple-300 font-normal">e.g. USER-9821</span>
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={adminTargetUserId}
-                      onChange={(e) => setAdminTargetUserId(e.target.value)}
-                      placeholder="Enter Target User ID (e.g. USER-9821)"
-                      className="flex-1 px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-sm text-white font-mono focus:outline-none focus:border-purple-500"
-                      required
-                    />
-                    {allSavedProfiles.length > 0 && (
-                      <select
-                        onChange={(e) => e.target.value && setAdminTargetUserId(e.target.value)}
-                        className="px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-purple-500"
-                      >
-                        <option value="" className="bg-slate-900 text-white">Select Stored ID...</option>
-                        {allSavedProfiles.map((p) => (
-                          <option key={p.id} value={p.id} className="bg-slate-900 text-white">
-                            {p.id} ({p.name})
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
+                  <input
+                    type="text"
+                    value={adminTargetUserId}
+                    onChange={(e) => setAdminTargetUserId(e.target.value)}
+                    placeholder="Enter Target User ID (e.g. USER-9821)"
+                    className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-sm text-white font-mono focus:outline-none focus:border-purple-500"
+                    required
+                  />
                 </div>
 
                 {/* Minutes Preset Selector */}
                 <div>
                   <label className="text-xs font-semibold text-gray-300 mb-1 block">
-                    Minutes to Grant / Allow
+                    Minutes to {modalActionType === 'ADD' ? 'Add (+)' : 'Remove (-)'}
                   </label>
                   <div className="grid grid-cols-5 gap-2 mb-2">
-                    {[15, 30, 60, 100, 500].map((m) => (
+                    {[5, 15, 30, 60, 120].map((m) => (
                       <button
                         key={m}
                         type="button"
                         onClick={() => setGrantMinutes(m)}
                         className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                           grantMinutes === m
-                            ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white border-purple-400'
+                            ? modalActionType === 'ADD'
+                              ? 'bg-emerald-600 text-white border-emerald-400'
+                              : 'bg-rose-600 text-white border-rose-400'
                             : 'bg-black/30 border-white/10 text-gray-400 hover:border-white/20'
                         }`}
                       >
-                        +{m}m
+                        {modalActionType === 'ADD' ? `+${m}m` : `-${m}m`}
                       </button>
                     ))}
                   </div>
@@ -811,7 +832,7 @@ export const MinutesModal: React.FC<MinutesModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Grant Note / Purpose</label>
+                    <label className="text-xs text-gray-400 mb-1 block">Note / Reason</label>
                     <input
                       type="text"
                       value={grantNoteInput}
@@ -824,10 +845,16 @@ export const MinutesModal: React.FC<MinutesModalProps> = ({
                 {/* Submit Grant Button */}
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-sm shadow-lg shadow-purple-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer hover:brightness-110"
+                  className={`w-full py-3 rounded-xl text-white font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer hover:brightness-110 ${
+                    modalActionType === 'ADD'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-600/30'
+                      : 'bg-gradient-to-r from-rose-600 to-pink-600 shadow-rose-600/30'
+                  }`}
                 >
                   <Gift className="w-4 h-4" />
-                  <span>Grant {grantMinutes} Minutes to User ID ({adminTargetUserId || 'Target'})</span>
+                  <span>
+                    {modalActionType === 'ADD' ? `Add +${grantMinutes}` : `Remove -${grantMinutes}`} Minutes to User ID ({adminTargetUserId || 'Target'})
+                  </span>
                 </button>
               </form>
 
@@ -854,8 +881,10 @@ export const MinutesModal: React.FC<MinutesModalProps> = ({
                   ))}
                 </div>
               </div>
-            </div>
+            </>
           )}
+        </div>
+      )}
         </div>
       </div>
     </div>

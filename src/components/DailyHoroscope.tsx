@@ -1,9 +1,21 @@
 import React, { useState } from 'react';
-import { Sun, Calendar, Clock, Sparkles, Compass, Shield, Award } from 'lucide-react';
+import { Sun, Calendar, Clock, Sparkles, Compass, Shield, Award, RefreshCw } from 'lucide-react';
 import { ZODIAC_SIGNS, getTodayPanchang } from '../utils/astrologyEngine';
 
-export const DailyHoroscope: React.FC = () => {
+interface DailyHoroscopeProps {
+  availableMinutes?: number;
+  onDeductMinute?: () => boolean;
+  onOpenRechargeModal?: () => void;
+}
+
+export const DailyHoroscope: React.FC<DailyHoroscopeProps> = ({
+  availableMinutes = 0,
+  onDeductMinute,
+  onOpenRechargeModal
+}) => {
   const [selectedRashi, setSelectedRashi] = useState(ZODIAC_SIGNS[0]);
+  const [aiReading, setAiReading] = useState('');
+  const [isLoadingAi, setIsLoadingAi] = useState(false);
   const panchang = getTodayPanchang();
 
   const getRashifalContent = (rashiName: string) => {
@@ -16,6 +28,41 @@ export const DailyHoroscope: React.FC = () => {
   };
 
   const rashifal = getRashifalContent(selectedRashi.english);
+
+  const handleGenerateAiRashifal = async () => {
+    if (availableMinutes <= 0) {
+      if (onOpenRechargeModal) onOpenRechargeModal();
+      return;
+    }
+
+    if (onDeductMinute) {
+      const ok = onDeductMinute();
+      if (!ok) return;
+    }
+
+    setIsLoadingAi(true);
+    setAiReading('');
+
+    try {
+      const res = await fetch('/api/astrology/kundali-reading', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rashi: selectedRashi,
+          panchang,
+          type: 'DAILY_RASHIFAL'
+        })
+      });
+
+      const data = await res.json();
+      setAiReading(data.reading || 'Detailed Rashifal generated successfully.');
+    } catch (err) {
+      console.error(err);
+      setAiReading('Error communicating with Rashifal AI server.');
+    } finally {
+      setIsLoadingAi(false);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -82,7 +129,7 @@ export const DailyHoroscope: React.FC = () => {
 
       {/* Rashifal Prediction Cards */}
       <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 shadow-xl space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-white/10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-white/10">
           <div>
             <h3 className="font-bold text-lg font-serif text-white">
               Daily Rashifal: {selectedRashi.english} ({selectedRashi.hindi})
@@ -92,6 +139,15 @@ export const DailyHoroscope: React.FC = () => {
               {selectedRashi.element}
             </p>
           </div>
+
+          <button
+            onClick={handleGenerateAiRashifal}
+            disabled={isLoadingAi}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 hover:brightness-110 active:scale-95 transition-all cursor-pointer whitespace-nowrap self-start sm:self-auto"
+          >
+            <Sparkles className="w-4 h-4 text-amber-300" />
+            <span>{isLoadingAi ? 'Consulting Planetary Chart...' : `Deep AI Rashifal (Requires 1 Min)`}</span>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
@@ -115,6 +171,27 @@ export const DailyHoroscope: React.FC = () => {
             <p className="text-gray-300 leading-relaxed">{rashifal.health}</p>
           </div>
         </div>
+
+        {/* AI Reading Card */}
+        {(isLoadingAi || aiReading) && (
+          <div className="p-5 rounded-2xl bg-black/40 border border-indigo-500/30 space-y-3 mt-4">
+            <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+              <Sparkles className="w-4 h-4 text-amber-300 animate-spin-slow" />
+              <h4 className="font-serif font-bold text-sm text-white">
+                Deep AI Rashifal Guidance ({selectedRashi.english})
+              </h4>
+            </div>
+
+            {isLoadingAi ? (
+              <div className="py-6 text-center space-y-2">
+                <div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p className="text-xs text-indigo-300">Consulting planetary alignments and transit positions...</p>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-200 leading-relaxed whitespace-pre-wrap">{aiReading}</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

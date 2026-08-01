@@ -18,7 +18,7 @@ import { NumerologyView } from './components/NumerologyView';
 import { CompatibilityView } from './components/CompatibilityView';
 import { DailyHoroscope } from './components/DailyHoroscope';
 import { AdminPanel } from './components/AdminPanel';
-import { Sparkles, Heart } from 'lucide-react';
+import { Sparkles, Heart, AlertTriangle, Zap, Clock } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('kundali');
@@ -94,6 +94,47 @@ export default function App() {
 
       {/* Main App Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 z-10">
+        {/* Zero Minutes Warning Notification Banner */}
+        {userProfile.availableMinutes <= 0 && (
+          <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-rose-950/80 via-amber-950/70 to-purple-950/80 border border-rose-500/50 shadow-2xl shadow-rose-950/50 flex flex-col sm:flex-row items-center justify-between gap-4 animate-pulse">
+            <div className="flex items-center gap-3 text-left">
+              <div className="p-2.5 bg-rose-500/20 border border-rose-400/40 rounded-2xl text-rose-300 shrink-0 shadow-lg">
+                <AlertTriangle className="w-6 h-6 text-rose-400" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-white flex items-center gap-2">
+                  <span>⚠️ Balance Alert: 0 Consultation Minutes Remaining!</span>
+                </h4>
+                <p className="text-xs text-rose-200/90 mt-0.5">
+                  Aapke paas AI Astrologer se baat karne, Kundali Dasha calculation aur Daily Horoscope ke liye minutes nahi bache hain. Recharge karke turant consultation resume karein!
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => handleOpenRechargeModal('USER_BUY')}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/40 flex items-center justify-center gap-2 shrink-0 cursor-pointer transition-all hover:scale-105 uppercase tracking-wider"
+            >
+              <Zap className="w-4 h-4 fill-amber-200" />
+              <span>Recharge Minutes Now</span>
+            </button>
+          </div>
+        )}
+
+        {/* Low Balance Warning Banner (1 or 2 Minutes Left) */}
+        {userProfile.availableMinutes > 0 && userProfile.availableMinutes <= 2 && (
+          <div className="mb-6 p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-xs">
+              <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+              <span><strong>Low Balance Warning:</strong> Sirf {userProfile.availableMinutes} Minute bache hain. Uninterrupted consultation ke liye abhi topup karein.</span>
+            </div>
+            <button
+              onClick={() => handleOpenRechargeModal('USER_BUY')}
+              className="px-4 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/30 text-amber-300 font-bold text-xs shrink-0 cursor-pointer transition-all"
+            >
+              + Topup Minutes
+            </button>
+          </div>
+        )}
         {activeTab === 'kundali' && (
           <KundaliView
             userProfile={userProfile}
@@ -134,7 +175,13 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'rashifal' && <DailyHoroscope />}
+        {activeTab === 'rashifal' && (
+          <DailyHoroscope
+            availableMinutes={userProfile.availableMinutes}
+            onDeductMinute={handleDeductMinute}
+            onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
+          />
+        )}
 
         {activeTab === 'admin' && <AdminPanel onRefreshProfile={handleRefreshProfile} />}
       </main>

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { UserProfile, ChatMessage } from '../types';
 import { calculateVedicKundali } from '../utils/astrologyEngine';
+import { addUserActivityLog } from '../utils/minutesManager';
 
 interface AiAstrologerChatProps {
   userProfile: UserProfile;
@@ -152,7 +153,16 @@ export const AiAstrologerChat: React.FC<AiAstrologerChatProps> = ({
     // Start active session status
     setIsConsultationActive(true);
 
+    // Log user question for Admin inspection
+    addUserActivityLog(
+      userProfile.id,
+      userProfile.name,
+      'Asked AI Astrologer',
+      textToSend.trim()
+    );
+
     const userMsg: ChatMessage = {
+
       id: `usr_${Date.now()}`,
       sender: 'user',
       text: textToSend.trim(),
