@@ -149,8 +149,9 @@ export function logoutUser() {
 export function getActiveUserProfile(): UserProfile | null {
   const users = getUsersDb();
   const id = getActiveUserId();
-  if (id && users[id]) return users[id];
-  return null;
+  if (!id) return null;
+  if (users[id]) return users[id];
+  return fetchUserById(id);
 }
 
 // Sync all users with server (2-way sync)
@@ -180,33 +181,43 @@ export async function syncAllUsersFromServer(): Promise<{ [id: string]: UserProf
   return getUsersDb();
 }
 
-// Live lookup of existing user by User ID (Server + Cache)
+// Live lookup of existing user by User ID or Email (Server + Cache)
 export async function fetchUserByIdAsync(userId: string): Promise<UserProfile | null> {
   if (!userId) return null;
-  const clean = userId.trim().toUpperCase();
+  const clean = userId.trim();
   try {
     const res = await fetch(`/api/users/${encodeURIComponent(clean)}`);
     if (res.ok) {
       const user = await res.json();
-      const users = getUsersDb();
-      users[clean] = user;
-      saveUsersDb(users);
-      return user;
+      if (user && user.id) {
+        const users = getUsersDb();
+        users[user.id] = user;
+        saveUsersDb(users);
+        return user;
+      }
     }
   } catch (e) {
     console.error('Error fetching user from server:', e);
   }
 
   // Fallback to cache
-  const users = getUsersDb();
-  return users[clean] || null;
+  return fetchUserById(clean);
 }
 
 export function fetchUserById(userId: string): UserProfile | null {
   if (!userId) return null;
   const users = getUsersDb();
-  const clean = userId.trim().toUpperCase();
-  return users[clean] || null;
+  const cleanUpper = userId.trim().toUpperCase();
+  const cleanLower = userId.trim().toLowerCase();
+
+  for (const [key, u] of Object.entries(users)) {
+    if (!u) continue;
+    if (key.trim().toUpperCase() === cleanUpper) return u;
+    if (u.id && u.id.trim().toUpperCase() === cleanUpper) return u;
+    if (u.email && u.email.trim().toLowerCase() === cleanLower) return u;
+    if (u.name && u.name.trim().toLowerCase() === cleanLower) return u;
+  }
+  return null;
 }
 
 export function changeUserPin(
@@ -314,19 +325,20 @@ export async function verifyUserPinAsync(
   userId: string,
   pinInput: string
 ): Promise<{ success: boolean; message: string; user?: UserProfile }> {
-  const cleanId = userId.trim().toUpperCase();
+  const query = userId.trim();
   try {
     const res = await fetch('/api/users/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: cleanId, pin: pinInput })
+      body: JSON.stringify({ userId: query, pin: pinInput })
     });
     const data = await res.json();
     if (res.ok && data.success && data.user) {
       const users = getUsersDb();
-      users[cleanId] = data.user;
+      const realId = data.user.id;
+      users[realId] = data.user;
       saveUsersDb(users);
-      setActiveUserId(cleanId);
+      setActiveUserId(realId);
       return {
         success: true,
         message: `Logged in successfully as ${data.user.name} (${data.user.id})!`,
@@ -335,7 +347,7 @@ export async function verifyUserPinAsync(
     } else {
       return {
         success: false,
-        message: data.error || 'Incorrect User ID or Security PIN!'
+        message: data.error || 'Incorrect User ID / Email or Security PIN!'
       };
     }
   } catch (e) {
@@ -343,7 +355,7 @@ export async function verifyUserPinAsync(
   }
 
   // Fallback to local
-  return verifyUserPin(cleanId, pinInput);
+  return verifyUserPin(query, pinInput);
 }
 
 export function verifyUserPin(userId: string, pinInput: string): { success: boolean; message: string; user?: UserProfile } {

@@ -150,46 +150,69 @@ app.post("/api/users/sync", (req, res) => {
   return res.json({ success: true, users: serverDb.users });
 });
 
-app.get("/api/users/:id", (req, res) => {
-  const cleanId = (req.params.id || "").trim().toUpperCase();
-  let user = serverDb.users[cleanId];
-  if (!user) {
-    const foundKey = Object.keys(serverDb.users).find(
-      k => k.trim().toUpperCase() === cleanId || (serverDb.users[k] && serverDb.users[k].id && serverDb.users[k].id.trim().toUpperCase() === cleanId)
-    );
-    if (foundKey) user = serverDb.users[foundKey];
+// Flexible user lookup helper across server DB
+function findUserInServerDb(query: string): any | null {
+  if (!query || !query.trim()) return null;
+  const cleanUpper = query.trim().toUpperCase();
+  const cleanLower = query.trim().toLowerCase();
+
+  // 1. Direct key or user.id match
+  for (const [key, user] of Object.entries(serverDb.users)) {
+    if (!user) continue;
+    if (key.trim().toUpperCase() === cleanUpper) return user;
+    if (user.id && String(user.id).trim().toUpperCase() === cleanUpper) return user;
   }
 
+  // 2. Email match
+  for (const user of Object.values(serverDb.users)) {
+    if (!user) continue;
+    if (user.email && String(user.email).trim().toLowerCase() === cleanLower) return user;
+  }
+
+  // 3. Phone / Mobile match
+  for (const user of Object.values(serverDb.users)) {
+    if (!user) continue;
+    if (user.phone && String(user.phone).trim() === query.trim()) return user;
+  }
+
+  // 4. Name match (case-insensitive)
+  for (const user of Object.values(serverDb.users)) {
+    if (!user) continue;
+    if (user.name && String(user.name).trim().toLowerCase() === cleanLower) return user;
+  }
+
+  return null;
+}
+
+app.get("/api/users/:id", (req, res) => {
+  const query = (req.params.id || "").trim();
+  const user = findUserInServerDb(query);
+
   if (!user) {
-    return res.status(404).json({ error: `User ID '${cleanId}' does not exist on server.` });
+    return res.status(404).json({ error: `User ID or Email '${query}' does not exist on server database.` });
   }
   return res.json(user);
 });
 
 app.post("/api/users/login", (req, res) => {
   const { userId, pin } = req.body;
-  const cleanId = (userId || "").trim().toUpperCase();
+  const query = (userId || "").trim();
 
-  if (!cleanId) {
-    return res.status(400).json({ error: "Please enter your User ID." });
+  if (!query) {
+    return res.status(400).json({ error: "Please enter your User ID or Email." });
   }
 
-  // Flexible lookup by ID (exact or case-insensitive)
-  let userKey = Object.keys(serverDb.users).find(
-    k => k.trim().toUpperCase() === cleanId || (serverDb.users[k] && serverDb.users[k].id && serverDb.users[k].id.trim().toUpperCase() === cleanId)
-  );
-
-  let user = userKey ? serverDb.users[userKey] : null;
+  const user = findUserInServerDb(query);
 
   if (!user) {
     return res.status(404).json({
-      error: `User ID '${cleanId}' not found on server. Please check your 6-digit User ID or create a new account.`
+      error: `Account '${query}' not found on server database. Please check your 6-digit User ID or Email, or create a new account.`
     });
   }
 
   const userPin = user.pin || '1234';
   if ((pin || "").trim() !== userPin.trim()) {
-    return res.status(401).json({ error: "Incorrect Security PIN / Password! Please check your Security PIN." });
+    return res.status(401).json({ error: `Incorrect Security PIN / Password! Please enter the correct PIN for ${user.name} (${user.id}).` });
   }
 
   return res.json({ success: true, user });
@@ -204,25 +227,28 @@ app.post("/api/users/create", (req, res) => {
 
   let formattedId = (id || "").trim().toUpperCase();
 
-  if (formattedId && serverDb.users[formattedId]) {
-    // If user already exists on server, update it instead of throwing error if pins match
-    const existing = serverDb.users[formattedId];
-    if (pin && existing.pin && pin.trim() === existing.pin.trim()) {
-      serverDb.users[formattedId] = {
-        ...existing,
-        name: name.trim(),
-        email: email || existing.email || '',
-        dob: dob || existing.dob,
-        tob: tob || existing.tob,
-        pob: pob || existing.pob,
-        gender: gender || existing.gender
-      };
-      saveServerDb();
-      return res.json({ success: true, user: serverDb.users[formattedId] });
+  if (formattedId) {
+    const existing = findUserInServerDb(formattedId);
+    if (existing) {
+      // If user already exists on server, update it if pins match
+      if (pin && existing.pin && pin.trim() === existing.pin.trim()) {
+        const targetId = existing.id || formattedId;
+        serverDb.users[targetId] = {
+          ...existing,
+          name: name.trim(),
+          email: email || existing.email || '',
+          dob: dob || existing.dob,
+          tob: tob || existing.tob,
+          pob: pob || existing.pob,
+          gender: gender || existing.gender
+        };
+        saveServerDb();
+        return res.json({ success: true, user: serverDb.users[targetId] });
+      }
+      return res.status(400).json({
+        error: `User ID '${formattedId}' ALREADY EXISTS (${existing.name})! Please log in with Security PIN.`
+      });
     }
-    return res.status(400).json({
-      error: `User ID '${formattedId}' ALREADY EXISTS (${existing.name})! Please log in with Security PIN.`
-    });
   }
 
   if (!formattedId) {
@@ -257,34 +283,28 @@ app.post("/api/users/create", (req, res) => {
 
 app.post("/api/users/update", (req, res) => {
   const { userId, updates } = req.body;
-  const cleanId = (userId || "").trim().toUpperCase();
+  const query = (userId || "").trim();
 
-  const userKey = Object.keys(serverDb.users).find(
-    k => k.trim().toUpperCase() === cleanId || (serverDb.users[k] && serverDb.users[k].id && serverDb.users[k].id.trim().toUpperCase() === cleanId)
-  );
+  const user = findUserInServerDb(query);
 
-  if (!userKey || !serverDb.users[userKey]) {
-    return res.status(404).json({ error: `User ID '${cleanId}' not found.` });
+  if (!user || !user.id) {
+    return res.status(404).json({ error: `User ID or Email '${query}' not found on server.` });
   }
 
-  serverDb.users[userKey] = { ...serverDb.users[userKey], ...updates };
+  serverDb.users[user.id] = { ...serverDb.users[user.id], ...updates };
   saveServerDb();
 
-  return res.json({ success: true, user: serverDb.users[userKey] });
+  return res.json({ success: true, user: serverDb.users[user.id] });
 });
 
 app.post("/api/users/deduct-minute", (req, res) => {
   const { userId } = req.body;
-  const cleanId = (userId || "").trim().toUpperCase();
+  const query = (userId || "").trim();
 
-  const userKey = Object.keys(serverDb.users).find(
-    k => k.trim().toUpperCase() === cleanId || (serverDb.users[k] && serverDb.users[k].id && serverDb.users[k].id.trim().toUpperCase() === cleanId)
-  );
+  const user = findUserInServerDb(query);
 
-  const user = userKey ? serverDb.users[userKey] : null;
-
-  if (!user) {
-    return res.status(404).json({ error: `User ID '${cleanId}' not found.` });
+  if (!user || !user.id) {
+    return res.status(404).json({ error: `User ID '${query}' not found.` });
   }
 
   if (user.availableMinutes <= 0) {
@@ -292,6 +312,7 @@ app.post("/api/users/deduct-minute", (req, res) => {
   }
 
   user.availableMinutes = Math.max(0, user.availableMinutes - 1);
+  serverDb.users[user.id] = user;
   saveServerDb();
 
   return res.json({
@@ -303,16 +324,12 @@ app.post("/api/users/deduct-minute", (req, res) => {
 
 app.post("/api/users/recharge", (req, res) => {
   const { userId, minutes, amountPaid, type, method, grantedBy, note, actionType } = req.body;
-  const cleanId = (userId || "").trim().toUpperCase();
+  const query = (userId || "").trim();
 
-  const userKey = Object.keys(serverDb.users).find(
-    k => k.trim().toUpperCase() === cleanId || (serverDb.users[k] && serverDb.users[k].id && serverDb.users[k].id.trim().toUpperCase() === cleanId)
-  );
+  const user = findUserInServerDb(query);
 
-  const user = userKey ? serverDb.users[userKey] : null;
-
-  if (!user) {
-    return res.status(404).json({ error: `User ID '${cleanId}' does not exist on server.` });
+  if (!user || !user.id) {
+    return res.status(404).json({ error: `User ID or Email '${query}' does not exist on server.` });
   }
 
   const minsNum = Number(minutes) || 0;
@@ -326,7 +343,7 @@ app.post("/api/users/recharge", (req, res) => {
 
   const tx = {
     id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-    userId: cleanId,
+    userId: user.id,
     userName: user.name,
     minutesAdded: actionType === 'DEDUCT' ? -minsNum : minsNum,
     amountPaid: amountPaid || 0,
@@ -338,20 +355,23 @@ app.post("/api/users/recharge", (req, res) => {
   };
 
   serverDb.transactions.unshift(tx);
+  serverDb.users[user.id] = user;
   saveServerDb();
 
   return res.json({ success: true, user, tx });
 });
 
 app.delete("/api/users/:id", (req, res) => {
-  const cleanId = (req.params.id || "").trim().toUpperCase();
-  if (!serverDb.users[cleanId]) {
-    return res.status(404).json({ error: `User ID '${cleanId}' not found.` });
+  const query = (req.params.id || "").trim();
+  const user = findUserInServerDb(query);
+  if (!user || !user.id) {
+    return res.status(404).json({ error: `User ID '${query}' not found.` });
   }
-  const deletedName = serverDb.users[cleanId].name;
-  delete serverDb.users[cleanId];
+  const deletedName = user.name;
+  const deletedId = user.id;
+  delete serverDb.users[deletedId];
   saveServerDb();
-  return res.json({ success: true, message: `Deleted user ${deletedName} (${cleanId})` });
+  return res.json({ success: true, message: `Deleted user ${deletedName} (${deletedId})` });
 });
 
 app.get("/api/transactions", (_req, res) => {
