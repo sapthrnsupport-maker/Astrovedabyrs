@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Heart, Sparkles, User, RefreshCw, CheckCircle, AlertTriangle, Hash, Briefcase, Activity, Compass, Shield, Flame, Clock, Calendar, Gift, Zap } from 'lucide-react';
 import { UserProfile, AshtaKootaScore } from '../types';
-import { calculateAshtaKoota, calculateMoolank, calculateBhagyank, calculateNumerologyCompatibility, calculateCrushProposalChance } from '../utils/astrologyEngine';
+import { calculateAshtaKoota, calculateMoolank, calculateBhagyank, calculateNumerologyCompatibility, calculateCrushProposalChance, calculatePartnerCareerCompatibility } from '../utils/astrologyEngine';
 import { generateClientFallbackMatchReport } from '../utils/aiFallbackEngine';
 
 interface CompatibilityViewProps {
@@ -17,20 +17,22 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
   onDeductMinute,
   onOpenRechargeModal
 }) => {
-  const [matchMode, setMatchMode] = useState<'vedic' | 'numerology' | 'crush'>('crush');
+  const [matchMode, setMatchMode] = useState<'vedic' | 'numerology' | 'crush' | 'career'>('crush');
 
   const [partner1, setPartner1] = useState({
     name: userProfile.name || 'Rahul',
     dob: userProfile.dob || '1995-05-15',
     tob: userProfile.tob || '10:30',
-    rashi: 'Taurus (Vrishabh)'
+    rashi: 'Taurus (Vrishabh)',
+    careerGoal: 'Software & IT / Tech'
   });
 
   const [partner2, setPartner2] = useState({
     name: 'Ananya',
     dob: '1997-08-22',
     tob: '14:15',
-    rashi: 'Virgo (Kanya)'
+    rashi: 'Virgo (Kanya)',
+    careerGoal: 'Business & Startup'
   });
 
   const [aiAnalysis, setAiAnalysis] = useState('');
@@ -49,6 +51,16 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
 
   // Calculate Crush Acceptance & Love Proposal Chance
   const crushResult = calculateCrushProposalChance(partner1.name, partner1.dob, partner2.name, partner2.dob);
+
+  // Calculate Partner Career & Professional Compatibility
+  const careerResult = calculatePartnerCareerCompatibility(
+    partner1.name,
+    partner1.dob,
+    partner1.careerGoal,
+    partner2.name,
+    partner2.dob,
+    partner2.careerGoal
+  );
 
   const handleGenerateAiMatch = async () => {
     if (availableMinutes <= 0) {
@@ -75,6 +87,8 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
               ? gunScore.totalScore
               : matchMode === 'crush'
               ? `${crushResult.proposalSuccessChance}% Proposal Success Chance`
+              : matchMode === 'career'
+              ? `${careerResult.overallCareerSynergy}% Career Synergy`
               : `${numCompat.matrixScore}% (Numerology Matrix)`,
             mode: matchMode,
             moolank1,
@@ -114,12 +128,14 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-3 py-0.5 rounded-full bg-rose-500/20 text-rose-300 text-xs font-bold border border-rose-400/30">
-                Kundali & Numerology Love Calculator
+                Kundali & Numerology Love & Career Calculator
               </span>
             </div>
             <h1 className="text-2xl font-bold font-serif bg-gradient-to-r from-white via-rose-100 to-purple-200 bg-clip-text text-transparent">
               {matchMode === 'crush'
                 ? 'Crush Manegi Ya Nahi? 💖 Proposal Acceptance Calculator'
+                : matchMode === 'career'
+                ? 'Moolank & Bhagyank Career Synergy Calculator 💼'
                 : matchMode === 'vedic'
                 ? '36 Points Gun Milan & Kundali Match'
                 : 'Moolank & Bhagyank Numerology Match'}
@@ -127,6 +143,8 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
             <p className="text-xs text-gray-300">
               {matchMode === 'crush'
                 ? 'Calculate exact proposal success chance %, mutual feelings, best proposal dates, and Venus (Shukra) love remedies.'
+                : matchMode === 'career'
+                ? 'Analyze professional synergy %, joint wealth accumulation, business collaboration, and Moolank/Bhagyank career alignment.'
                 : matchMode === 'vedic'
                 ? 'Assess 36 Gunas, marital harmony, emotional resonance, health sync, and Nadi / Bhakoot Dosh.'
                 : 'Match partner birth dates using Moolank (Driver) & Bhagyank (Conductor) numerological vibration matrix.'}
@@ -139,16 +157,16 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
             className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-indigo-600 text-white font-bold text-sm shadow-lg shadow-rose-600/30 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
           >
             <Sparkles className="w-4 h-4 text-rose-300" />
-            <span>{isLoadingAi ? 'Consulting Matchmaker...' : 'AI Deep Love Report'}</span>
+            <span>{isLoadingAi ? 'Consulting Matchmaker...' : 'AI Deep Report'}</span>
           </button>
         </div>
       </div>
 
       {/* Matching Mode Selector Tabs */}
-      <div className="flex items-center p-1.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl max-w-xl mx-auto gap-1">
+      <div className="flex flex-wrap items-center p-1.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl max-w-2xl mx-auto gap-1">
         <button
           onClick={() => setMatchMode('crush')}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+          className={`flex-1 min-w-[120px] py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
             matchMode === 'crush'
               ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-lg shadow-rose-600/30'
               : 'text-gray-400 hover:text-white'
@@ -159,8 +177,20 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
         </button>
 
         <button
+          onClick={() => setMatchMode('career')}
+          className={`flex-1 min-w-[120px] py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            matchMode === 'career'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/30'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          <Briefcase className="w-4 h-4 text-emerald-300" />
+          <span>Career Synergy</span>
+        </button>
+
+        <button
           onClick={() => setMatchMode('vedic')}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+          className={`flex-1 min-w-[120px] py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
             matchMode === 'vedic'
               ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
               : 'text-gray-400 hover:text-white'
@@ -172,7 +202,7 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
 
         <button
           onClick={() => setMatchMode('numerology')}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+          className={`flex-1 min-w-[120px] py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
             matchMode === 'numerology'
               ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
               : 'text-gray-400 hover:text-white'
@@ -192,7 +222,7 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
               <User className="w-4 h-4 text-indigo-400" />
               <span>Partner 1 (Boy)</span>
             </h3>
-            {matchMode === 'numerology' && (
+            {(matchMode === 'numerology' || matchMode === 'career') && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono">
                 Moolank {moolank1} | Bhagyank {bhagyank1}
               </span>
@@ -219,7 +249,7 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Time of Birth {matchMode === 'numerology' && '(Optional)'}</label>
+                <label className="text-xs text-gray-400 block mb-1">Time of Birth {(matchMode === 'numerology' || matchMode === 'career') && '(Optional)'}</label>
                 <input
                   type="time"
                   value={partner1.tob}
@@ -227,6 +257,24 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
                   className="w-full px-2.5 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
                 />
               </div>
+            </div>
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Professional Goal / Industry Field</label>
+              <select
+                value={partner1.careerGoal}
+                onChange={(e) => setPartner1({ ...partner1, careerGoal: e.target.value })}
+                className="w-full px-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="Software & IT / Tech">Software & IT / Tech</option>
+                <option value="Business & Startup / E-Commerce">Business & Startup / E-Commerce</option>
+                <option value="Government & Civil Services (UPSC/SSC)">Government & Civil Services (UPSC/SSC)</option>
+                <option value="Finance, Banking & Investing">Finance, Banking & Investing</option>
+                <option value="Healthcare, Medicine & Research">Healthcare, Medicine & Research</option>
+                <option value="Creative Media, Marketing & Design">Creative Media, Marketing & Design</option>
+                <option value="Education, Coaching & Consulting">Education, Coaching & Consulting</option>
+                <option value="Real Estate & Construction">Real Estate & Construction</option>
+                <option value="Corporate Management & Law">Corporate Management & Law</option>
+              </select>
             </div>
           </div>
         </div>
@@ -238,7 +286,7 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
               <Heart className="w-4 h-4 text-rose-400" />
               <span>Partner 2 (Girl)</span>
             </h3>
-            {matchMode === 'numerology' && (
+            {(matchMode === 'numerology' || matchMode === 'career') && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-mono">
                 Moolank {moolank2} | Bhagyank {bhagyank2}
               </span>
@@ -265,7 +313,7 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Time of Birth {matchMode === 'numerology' && '(Optional)'}</label>
+                <label className="text-xs text-gray-400 block mb-1">Time of Birth {(matchMode === 'numerology' || matchMode === 'career') && '(Optional)'}</label>
                 <input
                   type="time"
                   value={partner2.tob}
@@ -274,12 +322,177 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
                 />
               </div>
             </div>
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Professional Goal / Industry Field</label>
+              <select
+                value={partner2.careerGoal}
+                onChange={(e) => setPartner2({ ...partner2, careerGoal: e.target.value })}
+                className="w-full px-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs text-rose-200 focus:outline-none focus:border-emerald-500"
+              >
+                <option value="Software & IT / Tech">Software & IT / Tech</option>
+                <option value="Business & Startup / E-Commerce">Business & Startup / E-Commerce</option>
+                <option value="Government & Civil Services (UPSC/SSC)">Government & Civil Services (UPSC/SSC)</option>
+                <option value="Finance, Banking & Investing">Finance, Banking & Investing</option>
+                <option value="Healthcare, Medicine & Research">Healthcare, Medicine & Research</option>
+                <option value="Creative Media, Marketing & Design">Creative Media, Marketing & Design</option>
+                <option value="Education, Coaching & Consulting">Education, Coaching & Consulting</option>
+                <option value="Real Estate & Construction">Real Estate & Construction</option>
+                <option value="Corporate Management & Law">Corporate Management & Law</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Mode Specific Compatibility Section */}
-      {matchMode === 'crush' ? (
+      {matchMode === 'career' ? (
+        /* CAREER & PROFESSIONAL COMPATIBILITY SECTION */
+        <div className="space-y-6">
+          <div className="bg-gradient-to-br from-slate-900/90 via-emerald-950/70 to-slate-900/90 border border-emerald-500/30 rounded-3xl p-6 shadow-2xl space-y-6 relative overflow-hidden">
+            <div className="flex flex-col md:flex-row items-center gap-8 border-b border-emerald-500/20 pb-6">
+              {/* Overall Career Synergy Score Meter */}
+              <div className="flex flex-col items-center justify-center p-6 bg-black/50 rounded-3xl border border-emerald-500/40 text-center min-w-[260px] shadow-2xl relative">
+                <span className="text-[11px] text-emerald-300 font-bold uppercase tracking-wider block mb-1 flex items-center gap-1">
+                  <Briefcase className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Overall Career Synergy Score</span>
+                </span>
+                <div className="text-6xl font-black font-serif text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-300">
+                  {careerResult.overallCareerSynergy}%
+                </div>
+                <div className="mt-2 text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-500/25 text-emerald-200 border border-emerald-400/40 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{careerResult.synergyLevel}</span>
+                </div>
+                <p className="text-xs text-amber-300 font-bold mt-2 leading-tight">
+                  {careerResult.synergyLevelHindi}
+                </p>
+              </div>
+
+              {/* Progress Meters for Career Metrics */}
+              <div className="flex-1 space-y-4 w-full">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-base text-white font-serif flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-emerald-400" />
+                    <span>Moolank & Bhagyank Professional Synergy</span>
+                  </h3>
+                  <span className="text-xs text-emerald-300 font-mono">
+                    Mulank {careerResult.moolank1} 🤝 {careerResult.moolank2}
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {/* Overall Career Synergy */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-300 font-medium">1. Overall Professional Synergy (करियर तालमेल)</span>
+                      <span className="font-bold text-emerald-300">{careerResult.overallCareerSynergy}%</span>
+                    </div>
+                    <div className="w-full bg-black/60 h-2.5 rounded-full overflow-hidden border border-emerald-500/20">
+                      <div
+                        className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-1000"
+                        style={{ width: `${careerResult.overallCareerSynergy}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Joint Financial Growth */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-300 font-medium">2. Joint Financial Growth & Wealth (धन वृद्धि योग)</span>
+                      <span className="font-bold text-cyan-300">{careerResult.financialGrowthScore}%</span>
+                    </div>
+                    <div className="w-full bg-black/60 h-2.5 rounded-full overflow-hidden border border-cyan-500/20">
+                      <div
+                        className="bg-gradient-to-r from-teal-500 to-cyan-400 h-full rounded-full transition-all duration-1000"
+                        style={{ width: `${careerResult.financialGrowthScore}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Joint Business Success */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-300 font-medium">3. Joint Business & Venture Success (संयुक्त व्यापार सफलता)</span>
+                      <span className="font-bold text-amber-300">{careerResult.jointBusinessSuccessScore}%</span>
+                    </div>
+                    <div className="w-full bg-black/60 h-2.5 rounded-full overflow-hidden border border-amber-500/20">
+                      <div
+                        className="bg-gradient-to-r from-amber-500 to-emerald-400 h-full rounded-full transition-all duration-1000"
+                        style={{ width: `${careerResult.jointBusinessSuccessScore}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Work-Life Balance */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-300 font-medium">4. Work-Life Balance & Goal Alignment</span>
+                      <span className="font-bold text-indigo-300">{careerResult.workLifeBalanceScore}%</span>
+                    </div>
+                    <div className="w-full bg-black/60 h-2.5 rounded-full overflow-hidden border border-indigo-500/20">
+                      <div
+                        className="bg-gradient-to-r from-indigo-500 to-purple-400 h-full rounded-full transition-all duration-1000"
+                        style={{ width: `${careerResult.workLifeBalanceScore}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-black/40 border border-white/10 text-xs text-gray-300 flex items-center justify-between">
+                  <span className="text-emerald-300 font-medium">
+                    {partner1.name} (Moolank {careerResult.moolank1}: {careerResult.ruler1})
+                  </span>
+                  <span className="text-teal-300 font-medium">
+                    {partner2.name} (Moolank {careerResult.moolank2}: {careerResult.ruler2})
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed Professional Strategy Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-4 rounded-2xl bg-black/40 border border-emerald-500/30 space-y-2">
+                <div className="flex items-center gap-2 text-emerald-300 font-bold text-xs uppercase tracking-wider">
+                  <Briefcase className="w-4 h-4 text-emerald-400" />
+                  <span>Career & Goal Alignment Summary</span>
+                </div>
+                <p className="text-xs text-gray-200 leading-relaxed">
+                  {careerResult.careerSynergySummary}
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-black/40 border border-teal-500/30 space-y-2">
+                <div className="flex items-center gap-2 text-teal-300 font-bold text-xs uppercase tracking-wider">
+                  <Compass className="w-4 h-4 text-teal-400" />
+                  <span>Joint Venture & Business Advice</span>
+                </div>
+                <p className="text-xs text-gray-200 leading-relaxed">
+                  {careerResult.jointVentureRecommendation}
+                </p>
+              </div>
+            </div>
+
+            {/* Financial Strategy & Remedies Box */}
+            <div className="p-5 rounded-2xl bg-black/50 border border-emerald-500/30 space-y-3">
+              <div className="flex items-center gap-2 text-emerald-300 font-bold text-sm">
+                <Sparkles className="w-4 h-4 text-emerald-400" />
+                <span>Guruji's Vedic & Numerological Career Remedies (व्यावसायिक सफलता उपाय)</span>
+              </div>
+              <p className="text-xs text-gray-300 border-b border-white/10 pb-2">
+                {careerResult.financialAdvice}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {careerResult.remedies.map((remedy, idx) => (
+                  <div key={idx} className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-start gap-2 text-gray-200">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                    <span>{remedy}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : matchMode === 'crush' ? (
         /* CRUSH PROPOSAL ACCEPTANCE CALCULATOR VIEW */
         <div className="space-y-6">
           <div className="bg-gradient-to-br from-rose-950/80 via-purple-950/70 to-slate-900/80 border border-rose-500/30 rounded-3xl p-6 shadow-2xl space-y-6 relative overflow-hidden">

@@ -834,4 +834,114 @@ export function calculateCareerProbability(
   };
 }
 
+// Partner Career & Professional Compatibility Percentage Calculator
+export interface CareerCompatibilityResult {
+  overallCareerSynergy: number;
+  financialGrowthScore: number;
+  jointBusinessSuccessScore: number;
+  workLifeBalanceScore: number;
+  moolank1: number;
+  bhagyank1: number;
+  moolank2: number;
+  bhagyank2: number;
+  ruler1: string;
+  ruler2: string;
+  synergyLevel: string;
+  synergyLevelHindi: string;
+  careerSynergySummary: string;
+  jointVentureRecommendation: string;
+  financialAdvice: string;
+  remedies: string[];
+}
+
+export function calculatePartnerCareerCompatibility(
+  p1Name: string,
+  p1Dob: string,
+  p1Goal: string,
+  p2Name: string,
+  p2Dob: string,
+  p2Goal: string
+): CareerCompatibilityResult {
+  const m1 = calculateMoolank(p1Dob || '1995-05-15');
+  const b1 = calculateBhagyank(p1Dob || '1995-05-15');
+  const m2 = calculateMoolank(p2Dob || '1997-08-22');
+  const b2 = calculateBhagyank(p2Dob || '1997-08-22');
+
+  const rulerMap: { [key: number]: string } = {
+    1: 'Sun (Executive Leadership)',
+    2: 'Moon (Creative & HR)',
+    3: 'Jupiter (Advisory & Finance)',
+    4: 'Rahu (Tech & Strategy)',
+    5: 'Mercury (Business & Sales)',
+    6: 'Venus (Branding & Design)',
+    7: 'Ketu (R&D & Analytics)',
+    8: 'Saturn (Operations & Real Estate)',
+    9: 'Mars (Action & Engineering)'
+  };
+
+  const ruler1 = rulerMap[m1] || rulerMap[1];
+  const ruler2 = rulerMap[m2] || rulerMap[1];
+
+  let seed = 0;
+  const str = (p1Name || "P1") + (p2Name || "P2") + (p1Goal || "") + (p2Goal || "") + (p1Dob || "") + (p2Dob || "");
+  for (let i = 0; i < str.length; i++) {
+    seed = (seed << 5) - seed + str.charCodeAt(i);
+    seed |= 0;
+  }
+  seed = Math.abs(seed);
+
+  const moolankMatrixBonus = ((m1 === 1 && m2 === 5) || (m1 === 5 && m2 === 1) || (m1 === 3 && m2 === 8) || (m1 === 8 && m2 === 3) || (m1 === 4 && m2 === 6) || (m1 === 6 && m2 === 4) || (m1 === 2 && m2 === 3) || (m1 === 9 && m2 === 1)) ? 10 : 0;
+
+  const overallCareerSynergy = Math.min(98, Math.max(70, 78 + moolankMatrixBonus + (seed % 13)));
+  const financialGrowthScore = Math.min(99, Math.max(68, 80 + ((seed * 3) % 18)));
+  const jointBusinessSuccessScore = Math.min(97, Math.max(65, 75 + ((seed * 7) % 20)));
+  const workLifeBalanceScore = Math.min(96, Math.max(62, 72 + ((seed * 11) % 22)));
+
+  let synergyLevel = "High Career Harmony (उत्कृष्ट व्यावसायिक तालमेल)";
+  let synergyLevelHindi = "करियर व व्यापार में अपार वृद्धि योग";
+  if (overallCareerSynergy >= 90) {
+    synergyLevel = "Exceptional Power Duo (राजयोग व व्यापारिक सफलता)";
+    synergyLevelHindi = "साथ मिलकर अपार आर्थिक व व्यावसायिक सफलता";
+  } else if (overallCareerSynergy < 80) {
+    synergyLevel = "Moderate Alignment (समान प्रयास व रणनीतिक तालमेल)";
+    synergyLevelHindi = "स्पष्ट संवाद व कार्य विभाजन से उत्तम परिणाम";
+  }
+
+  const goal1 = p1Goal || 'Software & Tech';
+  const goal2 = p2Goal || 'Business & Startup';
+
+  const careerSynergySummary = `Moolank ${m1} (${ruler1}) and Moolank ${m2} (${ruler2}) create a powerful professional dynamic. ${p1Name}'s focus on "${goal1}" complements ${p2Name}'s target in "${goal2}", allowing both horoscopes to boost each other's financial status and career reputation without professional friction.`;
+
+  const jointVentureRecommendation = `A joint initiative or cross-support between ${goal1} and ${goal2} has an estimated ${jointBusinessSuccessScore}% success probability. The synergy between Bhagyank ${b1} and Bhagyank ${b2} favors collaborative projects, investments, or joint wealth accumulation.`;
+
+  const financialAdvice = `Financial growth score is ${financialGrowthScore}%. Moolank ${m1} brings strategic vision while Moolank ${m2} brings execution and financial stability. Keep transparent financial planning and invest in long-term appreciating assets together.`;
+
+  const remedies = [
+    `Keep a green Aventurine or Pyrite gemstone pyramid in the wealth corner (North-East) of your joint workspace.`,
+    `Offer Jal (water) to Surya Dev together on Sunday mornings with "Om Suryaya Namah" to attract professional promotions and prestige.`,
+    `Chant "Om Budhaya Namah" on Wednesdays to enhance joint business communication and financial intelligence.`,
+    `Donate food or warm clothes on Saturdays to Lord Shani for long-term career stability and overcoming obstacles.`
+  ];
+
+  return {
+    overallCareerSynergy,
+    financialGrowthScore,
+    jointBusinessSuccessScore,
+    workLifeBalanceScore,
+    moolank1: m1,
+    bhagyank1: b1,
+    moolank2: m2,
+    bhagyank2: b2,
+    ruler1,
+    ruler2,
+    synergyLevel,
+    synergyLevelHindi,
+    careerSynergySummary,
+    jointVentureRecommendation,
+    financialAdvice,
+    remedies
+  };
+}
+
+
 

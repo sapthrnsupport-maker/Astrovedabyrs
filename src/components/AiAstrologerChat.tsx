@@ -14,7 +14,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { UserProfile, ChatMessage } from '../types';
-import { calculateVedicKundali } from '../utils/astrologyEngine';
+import { calculateVedicKundali, calculateMoolank, calculateBhagyank } from '../utils/astrologyEngine';
 import { addUserActivityLog } from '../utils/minutesManager';
 import { generateClientFallbackChatReply } from '../utils/aiFallbackEngine';
 
@@ -188,7 +188,9 @@ export const AiAstrologerChat: React.FC<AiAstrologerChatProps> = ({
               tob: userProfile.tob,
               pob: userProfile.pob,
               rashi: kundali.moonRashi,
-              lagna: kundali.lagnaRashi
+              lagna: kundali.lagnaRashi,
+              moolank: calculateMoolank(userProfile.dob),
+              bhagyank: calculateBhagyank(userProfile.dob)
             },
             chatHistory: messages.slice(-6)
           })
@@ -209,7 +211,9 @@ export const AiAstrologerChat: React.FC<AiAstrologerChatProps> = ({
           tob: userProfile.tob,
           pob: userProfile.pob,
           rashi: kundali.moonRashi,
-          lagna: kundali.lagnaRashi
+          lagna: kundali.lagnaRashi,
+          moolank: calculateMoolank(userProfile.dob),
+          bhagyank: calculateBhagyank(userProfile.dob)
         });
       }
 
