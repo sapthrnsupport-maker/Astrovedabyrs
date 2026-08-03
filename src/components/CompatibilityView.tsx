@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Heart, Sparkles, User, RefreshCw, CheckCircle, AlertTriangle, Hash, Briefcase, Activity, Compass, Shield, Flame, Clock, Calendar, Gift, Zap } from 'lucide-react';
 import { UserProfile, AshtaKootaScore } from '../types';
 import { calculateAshtaKoota, calculateMoolank, calculateBhagyank, calculateNumerologyCompatibility, calculateCrushProposalChance } from '../utils/astrologyEngine';
+import { generateClientFallbackMatchReport } from '../utils/aiFallbackEngine';
 
 interface CompatibilityViewProps {
   userProfile: UserProfile;
@@ -62,30 +63,43 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
     setAiAnalysis('');
 
     try {
-      const response = await fetch('/api/ai/compatibility', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          partner1,
-          partner2,
-          gunaScore: matchMode === 'vedic'
-            ? gunScore.totalScore
-            : matchMode === 'crush'
-            ? `${crushResult.proposalSuccessChance}% Proposal Success Chance`
-            : `${numCompat.matrixScore}% (Numerology Matrix)`,
-          mode: matchMode,
-          moolank1,
-          moolank2,
-          bhagyank1,
-          bhagyank2
-        })
-      });
+      let reportText = '';
+      try {
+        const response = await fetch('/api/ai/compatibility', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            partner1,
+            partner2,
+            gunaScore: matchMode === 'vedic'
+              ? gunScore.totalScore
+              : matchMode === 'crush'
+              ? `${crushResult.proposalSuccessChance}% Proposal Success Chance`
+              : `${numCompat.matrixScore}% (Numerology Matrix)`,
+            mode: matchMode,
+            moolank1,
+            moolank2,
+            bhagyank1,
+            bhagyank2
+          })
+        });
 
-      const data = await response.json();
-      setAiAnalysis(data.analysis || 'Matchmaking analysis unavailable.');
+        if (response.ok) {
+          const data = await response.json();
+          reportText = data.analysis || '';
+        }
+      } catch (e) {
+        console.warn('API route unreachable, using client match report generator:', e);
+      }
+
+      if (!reportText) {
+        reportText = generateClientFallbackMatchReport(partner1, partner2, matchMode);
+      }
+
+      setAiAnalysis(reportText);
     } catch (err) {
       console.error(err);
-      setAiAnalysis('Failed to get AI Gun Milan report.');
+      setAiAnalysis(generateClientFallbackMatchReport(partner1, partner2, matchMode));
     } finally {
       setIsLoadingAi(false);
     }

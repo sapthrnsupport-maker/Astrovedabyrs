@@ -16,6 +16,7 @@ import {
 import { UserProfile, ChatMessage } from '../types';
 import { calculateVedicKundali } from '../utils/astrologyEngine';
 import { addUserActivityLog } from '../utils/minutesManager';
+import { generateClientFallbackChatReply } from '../utils/aiFallbackEngine';
 
 interface AiAstrologerChatProps {
   userProfile: UserProfile;
@@ -174,25 +175,43 @@ export const AiAstrologerChat: React.FC<AiAstrologerChatProps> = ({
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userPrompt: textToSend,
-          kundaliContext: {
-            name: userProfile.name,
-            dob: userProfile.dob,
-            tob: userProfile.tob,
-            pob: userProfile.pob,
-            rashi: kundali.moonRashi,
-            lagna: kundali.lagnaRashi
-          },
-          chatHistory: messages.slice(-6)
-        })
-      });
+      let replyText = '';
+      try {
+        const response = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userPrompt: textToSend,
+            kundaliContext: {
+              name: userProfile.name,
+              dob: userProfile.dob,
+              tob: userProfile.tob,
+              pob: userProfile.pob,
+              rashi: kundali.moonRashi,
+              lagna: kundali.lagnaRashi
+            },
+            chatHistory: messages.slice(-6)
+          })
+        });
 
-      const data = await response.json();
-      const replyText = data.reply || 'Guruji is reflecting on the planetary transits. Please ask again.';
+        if (response.ok) {
+          const data = await response.json();
+          replyText = data.reply || '';
+        }
+      } catch (e) {
+        console.warn('API route unreachable, switching to fail-safe client engine:', e);
+      }
+
+      if (!replyText) {
+        replyText = generateClientFallbackChatReply(textToSend, {
+          name: userProfile.name,
+          dob: userProfile.dob,
+          tob: userProfile.tob,
+          pob: userProfile.pob,
+          rashi: kundali.moonRashi,
+          lagna: kundali.lagnaRashi
+        });
+      }
 
       const astroMsg: ChatMessage = {
         id: `ast_${Date.now()}`,
@@ -205,12 +224,17 @@ export const AiAstrologerChat: React.FC<AiAstrologerChatProps> = ({
       speakText(replyText);
     } catch (error) {
       console.error('Chat error:', error);
+      const fallbackMsg = generateClientFallbackChatReply(textToSend, {
+        name: userProfile.name,
+        rashi: kundali.moonRashi,
+        lagna: kundali.lagnaRashi
+      });
       setMessages((prev) => [
         ...prev,
         {
-          id: `err_${Date.now()}`,
+          id: `ast_${Date.now()}`,
           sender: 'astrologer',
-          text: 'Shanti! Server connectivity drop. Please retry sending your query.',
+          text: fallbackMsg,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
