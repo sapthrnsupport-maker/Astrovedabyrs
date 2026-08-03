@@ -153,15 +153,25 @@ export function getActiveUserProfile(): UserProfile | null {
   return null;
 }
 
-// Sync all users from server
+// Sync all users with server (2-way sync)
 export async function syncAllUsersFromServer(): Promise<{ [id: string]: UserProfile }> {
+  const localUsers = getUsersDb();
   try {
+    // Step 1: Push local users to server sync endpoint
+    await fetch('/api/users/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ users: localUsers })
+    });
+
+    // Step 2: Fetch full merged user database from server
     const res = await fetch('/api/users');
     if (res.ok) {
       const serverUsers = await res.json();
-      if (serverUsers && Object.keys(serverUsers).length > 0) {
-        saveUsersDb(serverUsers);
-        return serverUsers;
+      if (serverUsers && typeof serverUsers === 'object') {
+        const merged = { ...localUsers, ...serverUsers };
+        saveUsersDb(merged);
+        return merged;
       }
     }
   } catch (e) {
@@ -222,6 +232,14 @@ export function changeUserPin(
 
   users[cleanId].pin = newPin.trim();
   saveUsersDb(users);
+
+  // Background server sync
+  fetch('/api/users/update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: cleanId, updates: { pin: newPin.trim() } })
+  }).catch(e => console.error('Error updating pin on server:', e));
+
   return { success: true, message: 'Security PIN / Password updated successfully!' };
 }
 
@@ -239,6 +257,14 @@ export function adminResetUserPin(
   }
   users[cleanId].pin = newPin.trim();
   saveUsersDb(users);
+
+  // Background server sync
+  fetch('/api/users/update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: cleanId, updates: { pin: newPin.trim() } })
+  }).catch(e => console.error('Error updating pin on server:', e));
+
   return { success: true, message: `PIN updated successfully for ${users[cleanId].name} (${cleanId})!` };
 }
 
@@ -248,6 +274,13 @@ export function updateUserProfile(updated: Partial<UserProfile>) {
   if (users[activeId]) {
     users[activeId] = { ...users[activeId], ...updated };
     saveUsersDb(users);
+
+    // Background server sync
+    fetch('/api/users/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: activeId, updates: updated })
+    }).catch(e => console.error('Error updating user on server:', e));
   }
 }
 
@@ -361,8 +394,13 @@ export async function createNewUserAsync(params: {
       return { success: false, message: data.error || 'Failed to create user account' };
     }
   } catch (e: any) {
-    console.error('Error creating user on server:', e);
-    return { success: false, message: e.message || 'Server connection error' };
+    console.error('Error creating user on server, falling back to local creation:', e);
+    try {
+      const localUser = createNewUser(params.id, params.name, params.initialMinutes || 2, params.pin || '1234');
+      return { success: true, user: localUser };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Error creating account.' };
+    }
   }
 }
 
@@ -406,6 +444,14 @@ export function createNewUser(id?: string, name?: string, initialMinutes = 15, u
   users[formattedId] = profile;
   saveUsersDb(users);
   setActiveUserId(formattedId);
+
+  // Background server sync
+  fetch('/api/users/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(profile)
+  }).catch(e => console.error('Error syncing new user to server:', e));
+
   return profile;
 }
 
@@ -548,6 +594,13 @@ export function loginWithGoogleAccount(googleEmail: string, googleName: string):
     users[googleId] = user;
     saveUsersDb(users);
 
+    // Background server sync
+    fetch('/api/users/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(user)
+    }).catch(e => console.error('Error syncing google user to server:', e));
+
     addTransactionLog({
       id: `tx_google_${Date.now()}`,
       userId: googleId,
@@ -602,6 +655,11 @@ export function deleteUserAccount(targetUserId: string): { success: boolean; mes
   const deletedUserName = users[cleanId].name;
   delete users[cleanId];
   saveUsersDb(users);
+
+  // Background server sync
+  fetch(`/api/users/${encodeURIComponent(cleanId)}`, {
+    method: 'DELETE'
+  }).catch(e => console.error('Error deleting user on server:', e));
 
   // If deleted user was active, switch active ID to another existing user
   const remainingIds = Object.keys(users);

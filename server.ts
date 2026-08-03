@@ -114,9 +114,52 @@ app.get("/api/users", (_req, res) => {
   res.json(serverDb.users);
 });
 
+// Bulk sync endpoint to merge local storage users with server DB
+app.post("/api/users/sync", (req, res) => {
+  const { users } = req.body || {};
+  if (users && typeof users === 'object') {
+    let hasChanges = false;
+    for (const [id, u] of Object.entries(users)) {
+      if (!u || typeof u !== 'object') continue;
+      const cleanId = (id || (u as any).id || "").trim().toUpperCase();
+      if (!cleanId) continue;
+
+      if (!serverDb.users[cleanId]) {
+        serverDb.users[cleanId] = { ...(u as any), id: cleanId };
+        hasChanges = true;
+      } else {
+        // Preserve higher minutes or merge updated profile info
+        const existing = serverDb.users[cleanId];
+        const localUser = u as any;
+        const mergedMins = Math.max(existing.availableMinutes || 0, localUser.availableMinutes || 0);
+        const mergedTotal = Math.max(existing.totalRechargedMinutes || 0, localUser.totalRechargedMinutes || 0);
+        serverDb.users[cleanId] = {
+          ...existing,
+          ...localUser,
+          id: cleanId,
+          availableMinutes: mergedMins,
+          totalRechargedMinutes: mergedTotal
+        };
+        hasChanges = true;
+      }
+    }
+    if (hasChanges) {
+      saveServerDb();
+    }
+  }
+  return res.json({ success: true, users: serverDb.users });
+});
+
 app.get("/api/users/:id", (req, res) => {
   const cleanId = (req.params.id || "").trim().toUpperCase();
-  const user = serverDb.users[cleanId];
+  let user = serverDb.users[cleanId];
+  if (!user) {
+    const foundKey = Object.keys(serverDb.users).find(
+      k => k.trim().toUpperCase() === cleanId || (serverDb.users[k] && serverDb.users[k].id && serverDb.users[k].id.trim().toUpperCase() === cleanId)
+    );
+    if (foundKey) user = serverDb.users[foundKey];
+  }
+
   if (!user) {
     return res.status(404).json({ error: `User ID '${cleanId}' does not exist on server.` });
   }
@@ -126,22 +169,34 @@ app.get("/api/users/:id", (req, res) => {
 app.post("/api/users/login", (req, res) => {
   const { userId, pin } = req.body;
   const cleanId = (userId || "").trim().toUpperCase();
-  const user = serverDb.users[cleanId];
+
+  if (!cleanId) {
+    return res.status(400).json({ error: "Please enter your User ID." });
+  }
+
+  // Flexible lookup by ID (exact or case-insensitive)
+  let userKey = Object.keys(serverDb.users).find(
+    k => k.trim().toUpperCase() === cleanId || (serverDb.users[k] && serverDb.users[k].id && serverDb.users[k].id.trim().toUpperCase() === cleanId)
+  );
+
+  let user = userKey ? serverDb.users[userKey] : null;
 
   if (!user) {
-    return res.status(404).json({ error: `User ID '${cleanId}' does not exist.` });
+    return res.status(404).json({
+      error: `User ID '${cleanId}' not found on server. Please check your 6-digit User ID or create a new account.`
+    });
   }
 
   const userPin = user.pin || '1234';
   if ((pin || "").trim() !== userPin.trim()) {
-    return res.status(401).json({ error: "Incorrect Security PIN / Password! Access denied." });
+    return res.status(401).json({ error: "Incorrect Security PIN / Password! Please check your Security PIN." });
   }
 
   return res.json({ success: true, user });
 });
 
 app.post("/api/users/create", (req, res) => {
-  const { id, name, email, dob, tob, pob, gender, pin, initialMinutes } = req.body;
+  const { id, name, email, dob, tob, pob, gender, pin, initialMinutes, availableMinutes, totalRechargedMinutes } = req.body;
 
   if (!name || !name.trim() || !/[a-zA-Z]/.test(name)) {
     return res.status(400).json({ error: "Name must contain valid alphabetic letters." });
@@ -150,8 +205,23 @@ app.post("/api/users/create", (req, res) => {
   let formattedId = (id || "").trim().toUpperCase();
 
   if (formattedId && serverDb.users[formattedId]) {
+    // If user already exists on server, update it instead of throwing error if pins match
+    const existing = serverDb.users[formattedId];
+    if (pin && existing.pin && pin.trim() === existing.pin.trim()) {
+      serverDb.users[formattedId] = {
+        ...existing,
+        name: name.trim(),
+        email: email || existing.email || '',
+        dob: dob || existing.dob,
+        tob: tob || existing.tob,
+        pob: pob || existing.pob,
+        gender: gender || existing.gender
+      };
+      saveServerDb();
+      return res.json({ success: true, user: serverDb.users[formattedId] });
+    }
     return res.status(400).json({
-      error: `User ID '${formattedId}' ALREADY EXISTS (${serverDb.users[formattedId].name})! Please log in with Security PIN.`
+      error: `User ID '${formattedId}' ALREADY EXISTS (${existing.name})! Please log in with Security PIN.`
     });
   }
 
@@ -161,7 +231,9 @@ app.post("/api/users/create", (req, res) => {
     } while (serverDb.users[formattedId]);
   }
 
-  const mins = typeof initialMinutes === 'number' ? initialMinutes : 2; // Default 2 welcome minutes for new accounts
+  const mins = typeof availableMinutes === 'number'
+    ? availableMinutes
+    : (typeof initialMinutes === 'number' ? initialMinutes : 2);
 
   const newUser = {
     id: formattedId,
@@ -173,7 +245,7 @@ app.post("/api/users/create", (req, res) => {
     tob: tob || '12:00',
     pob: pob || 'New Delhi, India',
     availableMinutes: mins,
-    totalRechargedMinutes: mins,
+    totalRechargedMinutes: typeof totalRechargedMinutes === 'number' ? totalRechargedMinutes : mins,
     createdAt: new Date().toISOString()
   };
 
