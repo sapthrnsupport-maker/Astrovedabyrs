@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   CheckCircle,
@@ -26,7 +26,10 @@ import { UserProfile, RechargePlan } from '../types';
 import {
   RECHARGE_PLANS,
   purchaseMinutesForProfile,
+  purchaseMinutesForProfileAsync,
   adminRechargeUser,
+  adminRechargeUserAsync,
+  syncAllUsersFromServer,
   getTransactionLogs,
   getUsersDb,
   createNewUser
@@ -117,6 +120,13 @@ export const MinutesModal: React.FC<MinutesModalProps> = ({
     }
   };
 
+  // Sync users with server when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      syncAllUsersFromServer().then(() => onRefreshProfile());
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const usersDb = getUsersDb();
@@ -192,13 +202,13 @@ export const MinutesModal: React.FC<MinutesModalProps> = ({
       setProcessingStepText(`Verifying entitlement for ${createdId}...`);
       setTimeout(() => {
         setProcessingStepText(`Crediting ${selectedPlan.minutes} Mins access time...`);
-        setTimeout(() => {
+        setTimeout(async () => {
           let methodLabel = 'UPI / GPay';
           if (paymentMethod === 'card') methodLabel = 'Debit/Credit Card';
           if (paymentMethod === 'netbanking') methodLabel = `Net Banking (${selectedBank})`;
           if (paymentMethod === 'wallet') methodLabel = 'Paytm Wallet';
 
-          const res = purchaseMinutesForProfile(
+          const res = await purchaseMinutesForProfileAsync(
             createdId,
             selectedPlan,
             methodLabel,
@@ -231,13 +241,13 @@ export const MinutesModal: React.FC<MinutesModalProps> = ({
   };
 
   // Handle Admin Direct Grant
-  const handleAdminGrantSubmit = (e: React.FormEvent) => {
+  const handleAdminGrantSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAdminSuccessMsg('');
 
     if (!adminTargetUserId.trim() || grantMinutes <= 0) return;
 
-    const res = adminRechargeUser(
+    const res = await adminRechargeUserAsync(
       adminTargetUserId,
       grantMinutes,
       grantedByInput,

@@ -30,7 +30,10 @@ import { UserProfile, RechargeTransaction, UserActivityLog } from '../types';
 import {
   getUsersDb,
   adminRechargeUser,
+  adminRechargeUserAsync,
   createNewUser,
+  createNewUserAsync,
+  syncAllUsersFromServer,
   getTransactionLogs,
   setActiveUserId,
   deleteUserAccount,
@@ -209,11 +212,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
     return true;
   });
 
-  const handleGrantSubmit = (e: React.FormEvent) => {
+  // Auto-sync users from server when authorized
+  React.useEffect(() => {
+    if (isAuthorized) {
+      syncAllUsersFromServer().then(() => onRefreshProfile());
+    }
+  }, [isAuthorized]);
+
+  const handleGrantSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetId.trim() || addMinsInput <= 0) return;
 
-    const res = adminRechargeUser(
+    const res = await adminRechargeUserAsync(
       targetId,
       addMinsInput,
       'Astrologer Admin',
@@ -228,8 +238,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
     }
   };
 
-  const handleQuickAdjust = (userId: string, mins: number, mode: 'ADD' | 'DEDUCT') => {
-    const res = adminRechargeUser(
+  const handleQuickAdjust = async (userId: string, mins: number, mode: 'ADD' | 'DEDUCT') => {
+    const res = await adminRechargeUserAsync(
       userId,
       mins,
       'Astrologer Admin',
@@ -262,15 +272,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
     }
   };
 
-  const handleCreateUser = (e: React.FormEvent) => {
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const user = createNewUser(newId.trim(), newName.trim(), newInitMins, newPin.trim() || '1234');
-      onRefreshProfile();
-      setSuccessMsg(`✅ Created Account for ${user.name}! User ID Assigned: ${user.id} (${newInitMins} Mins) | PIN: ${user.pin || '1234'}`);
-      setNewId('');
-      setNewName('');
-      setNewPin('1234');
+      const res = await createNewUserAsync({
+        id: newId.trim(),
+        name: newName.trim(),
+        initialMinutes: newInitMins,
+        pin: newPin.trim() || '1234'
+      });
+      if (res.success && res.user) {
+        onRefreshProfile();
+        setSuccessMsg(`✅ Created Account for ${res.user.name}! User ID Assigned: ${res.user.id} (${newInitMins} Mins) | PIN: ${res.user.pin || '1234'}`);
+        setNewId('');
+        setNewName('');
+        setNewPin('1234');
+      } else {
+        setSuccessMsg(`❌ Error: ${res.message || 'Failed to create account.'}`);
+      }
     } catch (err: any) {
       setSuccessMsg(`❌ Error: ${err.message || 'Failed to create account.'}`);
     }

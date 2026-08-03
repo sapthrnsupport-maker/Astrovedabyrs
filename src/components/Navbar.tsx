@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Sparkles,
   Clock,
@@ -22,7 +22,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { UserProfile } from '../types';
-import { loginWithGoogleAccount, createNewUser, fetchUserById, verifyUserPin, verifyUserPinAsync, logoutUser } from '../utils/minutesManager';
+import { loginWithGoogleAccount, createNewUser, fetchUserById, fetchUserByIdAsync, verifyUserPin, verifyUserPinAsync, logoutUser } from '../utils/minutesManager';
 import { PrivateProfileModal } from './PrivateProfileModal';
 
 interface NavbarProps {
@@ -58,8 +58,48 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [loginError, setLoginError] = useState('');
   const [isCreatingUser, setIsCreatingUser] = useState(false);
 
-  // Live User Lookup
-  const matchedExistingUser = newUserIdInput.trim() ? fetchUserById(newUserIdInput.trim()) : null;
+  // Live Async User Lookup (Server + Local)
+  const [asyncMatchedUser, setAsyncMatchedUser] = useState<UserProfile | null>(null);
+  const [isSearchingUser, setIsSearchingUser] = useState(false);
+
+  useEffect(() => {
+    const clean = newUserIdInput.trim();
+    if (!clean) {
+      setAsyncMatchedUser(null);
+      setIsSearchingUser(false);
+      return;
+    }
+
+    // Check local first
+    const local = fetchUserById(clean);
+    if (local) {
+      setAsyncMatchedUser(local);
+      setIsSearchingUser(false);
+      return;
+    }
+
+    // Search server asynchronously for second devices
+    setIsSearchingUser(true);
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      fetchUserByIdAsync(clean).then(user => {
+        if (isMounted) {
+          setAsyncMatchedUser(user);
+          setIsSearchingUser(false);
+        }
+      }).catch(() => {
+        if (isMounted) {
+          setAsyncMatchedUser(null);
+          setIsSearchingUser(false);
+        }
+      });
+    }, 300);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [newUserIdInput]);
 
   const handleGoogleSignInSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -286,19 +326,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </div>
 
                         {/* Live User Detection Banner */}
-                        {matchedExistingUser ? (
+                        {isSearchingUser ? (
+                          <div className="p-2 bg-indigo-500/15 border border-indigo-500/30 rounded-lg text-[11px] text-indigo-200 flex items-center gap-1.5 animate-pulse">
+                            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>Searching User ID on server...</span>
+                          </div>
+                        ) : asyncMatchedUser ? (
                           <div className="p-2 bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-[11px] text-emerald-200 flex items-center gap-1.5">
                             <UserCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                             <div>
-                              <div className="font-bold text-white">{matchedExistingUser.name}</div>
+                              <div className="font-bold text-white">{asyncMatchedUser.name}</div>
                               <div className="text-[10px] text-emerald-300/90 font-mono">
-                                Account Active • Balance: {matchedExistingUser.availableMinutes} Mins
+                                Account Found • Balance: {asyncMatchedUser.availableMinutes} Mins
                               </div>
                             </div>
                           </div>
                         ) : newUserIdInput.trim() ? (
-                          <div className="p-2 bg-amber-500/15 border border-amber-500/30 rounded-lg text-[10px] text-amber-200">
-                            ⚠️ User ID '{newUserIdInput.trim()}' not found. Contact Admin to create account.
+                          <div className="p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-[10px] text-indigo-200">
+                            ℹ️ Enter your Security PIN below to log in.
                           </div>
                         ) : null}
 

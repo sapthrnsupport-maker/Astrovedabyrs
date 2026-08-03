@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   MessageSquare,
   Send,
@@ -11,7 +12,10 @@ import {
   Bot,
   HelpCircle,
   Flame,
-  AlertCircle
+  AlertCircle,
+  Sun,
+  Compass,
+  Star
 } from 'lucide-react';
 import { UserProfile, ChatMessage } from '../types';
 import { calculateVedicKundali, calculateMoolank, calculateBhagyank } from '../utils/astrologyEngine';
@@ -248,68 +252,113 @@ export const AiAstrologerChat: React.FC<AiAstrologerChatProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)] max-h-[700px] bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden relative">
-      {/* Chat Header */}
-      <div className="p-4 bg-black/40 backdrop-blur-md border-b border-white/10 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="relative w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 p-0.5 shadow-md shadow-indigo-500/30">
-            <div className="w-full h-full bg-black/80 rounded-full flex items-center justify-center text-indigo-300 font-bold text-sm">
-              <Bot className="w-5 h-5 text-indigo-400" />
+    <div className="flex flex-col h-[calc(100vh-12rem)] max-h-[750px] bg-gradient-to-b from-indigo-950/40 via-slate-950/80 to-black/90 backdrop-blur-2xl border border-indigo-500/20 rounded-3xl shadow-2xl overflow-hidden relative">
+      {/* Ambient background glow & stars */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-48 bg-amber-500/10 blur-[100px] pointer-events-none rounded-full"></div>
+      <div className="absolute bottom-10 right-10 w-64 h-64 bg-purple-600/10 blur-[120px] pointer-events-none rounded-full"></div>
+
+      {/* 3D Indian Culture Guru Chat Header */}
+      <div className="p-4 bg-black/60 backdrop-blur-xl border-b border-indigo-500/20 flex flex-col md:flex-row items-center justify-between gap-4 z-10">
+        <div className="flex items-center gap-3.5">
+          {/* 3D Animated Guru Avatar Container */}
+          <div className="relative w-14 h-14 shrink-0 flex items-center justify-center">
+            {/* Outer 3D Rotating Zodiac Ring */}
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
+              className="absolute inset-0 rounded-full border border-dashed border-amber-400/50 p-1"
+            >
+              <div className="w-full h-full rounded-full border border-indigo-400/30"></div>
+            </motion.div>
+
+            {/* Glowing Divine Aura Pulse */}
+            <motion.div
+              animate={{ scale: [1, 1.12, 1], opacity: [0.6, 0.9, 0.6] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute inset-1.5 rounded-full bg-gradient-to-tr from-amber-500 via-orange-600 to-purple-600 blur-sm opacity-70"
+            ></motion.div>
+
+            {/* Core 3D Guruji Icon Shield */}
+            <div className="relative w-11 h-11 rounded-full bg-gradient-to-b from-slate-900 via-indigo-950 to-black p-0.5 shadow-xl shadow-amber-500/20 border border-amber-400/40 flex items-center justify-center">
+              <span className="text-xl select-none filter drop-shadow-[0_2px_4px_rgba(251,191,36,0.6)]">🧘‍♂️</span>
+              <span className="absolute -top-1 -right-1 text-[10px] select-none">✨</span>
             </div>
-            <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-black"></span>
+
+            {/* Online Live Indicator */}
+            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-black shadow-lg shadow-emerald-500/50 animate-pulse"></span>
           </div>
+
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-bold text-sm text-white font-serif">Guruji AI Astrologer</h3>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
-                Online
+              <h3 className="font-bold text-base text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-orange-300 to-amber-400 font-serif flex items-center gap-1.5">
+                <span>Guruji AI Astrologer</span>
+                <span className="text-amber-400 text-xs">🕉️</span>
+              </h3>
+              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40 shadow-sm flex items-center gap-1">
+                <Flame className="w-3 h-3 text-amber-400 animate-bounce" /> 3D Vedic AI
               </span>
             </div>
-            <p className="text-[11px] text-gray-400">
-              Vedic Jyotish • Chart ({kundali.lagnaRashi} Lagna, {kundali.moonRashi} Moon)
+            <p className="text-[11px] text-indigo-200/80 font-mono mt-0.5 flex items-center gap-2">
+              <span>Parashari Jyotish</span>
+              <span>•</span>
+              <span className="text-emerald-300 font-bold">Chart Sync ({kundali.lagnaRashi} Lagna, {kundali.moonRashi} Moon)</span>
             </p>
           </div>
         </div>
 
         {/* Minutes & Voice Bar */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
           {/* Mute/Unmute Audio Voice */}
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => {
               setIsMuted(!isMuted);
               window.speechSynthesis?.cancel();
             }}
-            className="p-2 rounded-xl bg-black/30 border border-white/10 text-gray-400 hover:text-white transition-all text-xs flex items-center gap-1 cursor-pointer"
+            className="p-2.5 rounded-xl bg-indigo-950/60 border border-indigo-400/30 text-gray-300 hover:text-white transition-all text-xs flex items-center gap-1.5 cursor-pointer shadow-lg shadow-indigo-950/50"
             title={isMuted ? 'Voice Audio Muted' : 'Voice Audio Active'}
           >
-            {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
-          </button>
+            {isMuted ? (
+              <>
+                <VolumeX className="w-4 h-4 text-rose-400" />
+                <span className="text-[10px] text-rose-300 font-semibold hidden sm:inline">Muted</span>
+              </>
+            ) : (
+              <>
+                <Volume2 className="w-4 h-4 text-emerald-400" />
+                <span className="text-[10px] text-emerald-300 font-semibold hidden sm:inline">Voice Active</span>
+              </>
+            )}
+          </motion.button>
 
           {/* Consultation Minute Counter */}
-          <div
+          <motion.div
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             onClick={onOpenRechargeModal}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold cursor-pointer shadow-xl transition-all ${
               availableMinutes <= 2
                 ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 animate-pulse'
-                : 'bg-indigo-500/20 border-indigo-400/30 text-indigo-200 hover:bg-indigo-500/30'
+                : 'bg-gradient-to-r from-indigo-900/80 to-purple-900/80 border-indigo-400/40 text-indigo-200 hover:border-amber-400/60'
             }`}
           >
-            <Clock className="w-3.5 h-3.5 text-indigo-300" />
-            <span>{availableMinutes} Mins Left</span>
-          </div>
+            <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>{availableMinutes} Mins Remaining</span>
+          </motion.div>
         </div>
       </div>
 
       {/* Low Minutes Alert Banner */}
       {availableMinutes <= 2 && (
-        <div className="bg-rose-500/20 backdrop-blur-md border-b border-rose-500/30 px-4 py-2 flex items-center justify-between text-xs text-rose-200">
-          <span className="flex items-center gap-1.5">
+        <div className="bg-gradient-to-r from-rose-950/90 via-amber-950/80 to-slate-900/90 border-b border-rose-500/40 px-4 py-2 flex items-center justify-between text-xs text-rose-200 z-10">
+          <span className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
             <span>Your consultation balance is low ({availableMinutes} Mins). Top up to avoid interruption.</span>
           </span>
           <button
             onClick={onOpenRechargeModal}
-            className="px-3 py-1 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-[11px] shadow-md hover:brightness-110"
+            className="px-3.5 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-rose-600 text-white font-bold text-[11px] shadow-lg shadow-rose-600/30 hover:brightness-110 cursor-pointer"
           >
             Recharge
           </button>
@@ -317,91 +366,113 @@ export const AiAstrologerChat: React.FC<AiAstrologerChatProps> = ({
       )}
 
       {/* Chat Messages Body */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-black/20 scrollbar-thin">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex items-start gap-3 ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-          >
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
-                msg.sender === 'user'
-                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white'
-                  : 'bg-black/60 border border-white/20 text-indigo-300'
-              }`}
+      <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-950/40 backdrop-blur-md scrollbar-thin z-10">
+        <AnimatePresence initial={false}>
+          {messages.map((msg) => (
+            <motion.div
+              key={msg.id}
+              initial={{ opacity: 0, y: 12, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              className={`flex items-start gap-3 ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
             >
-              {msg.sender === 'user' ? 'You' : 'G'}
-            </div>
-
-            <div
-              className={`max-w-[80%] p-3.5 rounded-2xl text-xs leading-relaxed shadow-md ${
-                msg.sender === 'user'
-                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-tr-none font-medium'
-                  : 'bg-black/40 border border-white/10 text-gray-200 rounded-tl-none whitespace-pre-line'
-              }`}
-            >
-              <p>{msg.text}</p>
+              {/* Avatar Icon */}
               <div
-                className={`text-[9px] mt-1 text-right font-mono ${
-                  msg.sender === 'user' ? 'text-indigo-200/80' : 'text-gray-400'
+                className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 text-xs font-bold shadow-lg ${
+                  msg.sender === 'user'
+                    ? 'bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-600 text-white border border-purple-400/30'
+                    : 'bg-gradient-to-b from-slate-900 to-indigo-950 border border-amber-400/40 text-amber-300 shadow-amber-500/20'
                 }`}
               >
-                {msg.timestamp}
+                {msg.sender === 'user' ? 'You' : <span className="text-sm select-none">🧘‍♂️</span>}
               </div>
-            </div>
-          </div>
-        ))}
+
+              {/* Message Bubble */}
+              <div
+                className={`max-w-[85%] sm:max-w-[78%] p-4 rounded-2xl text-xs leading-relaxed shadow-xl backdrop-blur-xl relative ${
+                  msg.sender === 'user'
+                    ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white rounded-tr-none font-medium border border-indigo-400/30 shadow-indigo-600/20'
+                    : 'bg-gradient-to-b from-indigo-950/80 via-slate-900/90 to-black/90 border border-amber-500/20 text-indigo-100 rounded-tl-none whitespace-pre-line shadow-black/60'
+                }`}
+              >
+                {msg.sender === 'astrologer' && (
+                  <div className="absolute top-2 right-3 opacity-15 text-amber-400 font-serif text-lg pointer-events-none select-none">
+                    🕉️
+                  </div>
+                )}
+                <p className="relative z-10">{msg.text}</p>
+                <div
+                  className={`text-[9px] mt-2 text-right font-mono flex items-center justify-end gap-1 ${
+                    msg.sender === 'user' ? 'text-indigo-200/80' : 'text-amber-300/60'
+                  }`}
+                >
+                  <span>{msg.timestamp}</span>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
 
         {isLoading && (
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-indigo-300 text-xs font-bold">
-              G
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-3"
+          >
+            <div className="w-9 h-9 rounded-2xl bg-slate-900 border border-amber-400/40 flex items-center justify-center text-amber-300 text-sm font-bold shadow-lg">
+              🧘‍♂️
             </div>
-            <div className="p-3 rounded-2xl bg-black/40 border border-white/10 text-xs text-indigo-200 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce"></div>
-              <div className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce [animation-delay:0.2s]"></div>
-              <div className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce [animation-delay:0.4s]"></div>
-              <span className="text-[11px] text-gray-400 font-mono ml-1">Guruji reading planetary transits...</span>
+            <div className="p-3.5 rounded-2xl bg-indigo-950/80 border border-indigo-500/30 text-xs text-indigo-200 flex items-center gap-2.5 shadow-xl">
+              <div className="w-2 h-2 rounded-full bg-amber-400 animate-bounce"></div>
+              <div className="w-2 h-2 rounded-full bg-amber-400 animate-bounce [animation-delay:0.2s]"></div>
+              <div className="w-2 h-2 rounded-full bg-amber-400 animate-bounce [animation-delay:0.4s]"></div>
+              <span className="text-[11px] text-amber-200/90 font-serif ml-1">
+                Guruji reading your Grah Dasha & planetary transits...
+              </span>
             </div>
-          </div>
+          </motion.div>
         )}
         <div ref={chatBottomRef} />
       </div>
 
       {/* Preset Category Switcher Bar */}
-      <div className="px-3 py-1.5 bg-black/40 border-t border-white/10 flex items-center gap-1.5 overflow-x-auto scrollbar-none text-xs">
+      <div className="px-3 py-2 bg-black/60 border-t border-indigo-500/20 flex items-center gap-1.5 overflow-x-auto scrollbar-none text-xs z-10">
         {Object.entries(PRESET_CATEGORIES).map(([catKey, catInfo]) => (
-          <button
+          <motion.button
             key={catKey}
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.96 }}
             onClick={() => setActiveCategoryFilter(catKey)}
-            className={`px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1 ${
+            className={`px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
               activeCategoryFilter === catKey
-                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                ? 'bg-gradient-to-r from-amber-500 via-orange-600 to-purple-600 text-white shadow-lg shadow-orange-600/30 border border-amber-300/40'
+                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
             }`}
           >
             <span>{catInfo.icon}</span>
             <span>{catInfo.label}</span>
-          </button>
+          </motion.button>
         ))}
       </div>
 
       {/* Preset Quick Question Chips */}
-      <div className="px-3 py-2 bg-black/30 border-t border-white/5 flex items-center gap-2 overflow-x-auto scrollbar-none text-[11px]">
+      <div className="px-3 py-2 bg-black/40 border-t border-white/5 flex items-center gap-2 overflow-x-auto scrollbar-none text-[11px] z-10">
         {filteredPresets.map((item, idx) => (
-          <button
+          <motion.button
             key={idx}
+            whileHover={{ scale: 1.02, y: -1 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => handleSendMessage(item.prompt)}
             disabled={isLoading}
-            className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-indigo-200 hover:text-white hover:border-indigo-400/50 hover:bg-white/10 whitespace-nowrap transition-all cursor-pointer shadow-sm text-left flex items-center gap-1.5"
+            className="px-3.5 py-2 rounded-xl bg-indigo-950/50 border border-indigo-500/20 text-indigo-200 hover:text-white hover:border-amber-400/50 hover:bg-indigo-900/60 whitespace-nowrap transition-all cursor-pointer shadow-md text-left flex items-center gap-1.5 shrink-0"
           >
             <span>{item.label}</span>
-          </button>
+          </motion.button>
         ))}
       </div>
 
       {/* Message Input Box */}
-      <div className="p-3 bg-black/40 border-t border-white/10">
+      <div className="p-3.5 bg-black/70 border-t border-indigo-500/20 z-10">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -414,16 +485,18 @@ export const AiAstrologerChat: React.FC<AiAstrologerChatProps> = ({
             value={inputPrompt}
             onChange={(e) => setInputPrompt(e.target.value)}
             placeholder="Poochhein (Ask Guruji about marriage, career, Kundali remedies...)"
-            className="flex-1 px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+            className="flex-1 px-4 py-3 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl text-xs text-white placeholder-indigo-300/40 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all shadow-inner"
             disabled={isLoading}
           />
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             type="submit"
             disabled={isLoading || !inputPrompt.trim()}
-            className="p-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold hover:brightness-110 disabled:opacity-50 transition-all cursor-pointer shadow-lg shadow-indigo-600/30"
+            className="p-3 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-600 to-purple-600 text-white font-bold hover:brightness-110 disabled:opacity-40 transition-all cursor-pointer shadow-xl shadow-orange-600/30 shrink-0"
           >
             <Send className="w-4 h-4" />
-          </button>
+          </motion.button>
         </form>
       </div>
     </div>

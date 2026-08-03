@@ -455,7 +455,44 @@ export function createNewUser(id?: string, name?: string, initialMinutes = 15, u
   return profile;
 }
 
-// In-App Self / Profile Purchase of Minutes with Payment Method and Coupon Discount
+// In-App Self / Profile Purchase of Minutes with Payment Method and Coupon Discount (Async Server Sync)
+export async function purchaseMinutesForProfileAsync(
+  targetProfileId: string,
+  plan: RechargePlan,
+  paymentMethod: string = 'UPI / GPay',
+  discountAmount: number = 0
+): Promise<{ success: boolean; newBalance: number; targetUser?: UserProfile; message?: string }> {
+  const cleanId = targetProfileId.trim().toUpperCase() || getActiveUserId();
+  const finalPrice = Math.max(0, plan.priceINR - discountAmount);
+
+  try {
+    const res = await fetch('/api/users/recharge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: cleanId,
+        minutes: plan.minutes,
+        amountPaid: finalPrice,
+        type: 'SELF_PURCHASE',
+        method: paymentMethod,
+        actionType: 'ADD'
+      })
+    });
+    const data = await res.json();
+    if (res.ok && data.success && data.user) {
+      const users = getUsersDb();
+      users[cleanId] = data.user;
+      saveUsersDb(users);
+      if (data.tx) addTransactionLog(data.tx);
+      return { success: true, newBalance: data.user.availableMinutes, targetUser: data.user };
+    }
+  } catch (e) {
+    console.error('Server recharge error, falling back to local purchase:', e);
+  }
+
+  return purchaseMinutesForProfile(targetProfileId, plan, paymentMethod, discountAmount);
+}
+
 export function purchaseMinutesForProfile(
   targetProfileId: string,
   plan: RechargePlan,
@@ -479,6 +516,20 @@ export function purchaseMinutesForProfile(
   targetUser.totalRechargedMinutes += plan.minutes;
   users[cleanId] = targetUser;
   saveUsersDb(users);
+
+  // Background server sync
+  fetch('/api/users/recharge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userId: cleanId,
+      minutes: plan.minutes,
+      amountPaid: finalPrice,
+      type: 'SELF_PURCHASE',
+      method: paymentMethod,
+      actionType: 'ADD'
+    })
+  }).catch(e => console.error('Error syncing purchase to server:', e));
 
   // Record log
   addTransactionLog({
@@ -506,8 +557,55 @@ export function purchaseMinutesSelf(plan: RechargePlan): { success: boolean; new
   return { success: res.success, newBalance: res.newBalance, message: res.message };
 }
 
-// Admin / Astrologer ID Recharge function
-// STRICT CHECK: Reject if User ID does NOT exist!
+// Admin / Astrologer ID Recharge function (Async Server Sync)
+export async function adminRechargeUserAsync(
+  targetUserId: string,
+  minutesAmount: number,
+  grantedBy: string = 'Astrologer Admin',
+  note: string = 'Admin Manual Adjustment',
+  actionType: 'ADD' | 'DEDUCT' = 'ADD'
+): Promise<{ success: boolean; message: string; user?: UserProfile }> {
+  const cleanId = targetUserId.trim().toUpperCase();
+
+  try {
+    const res = await fetch('/api/users/recharge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: cleanId,
+        minutes: minutesAmount,
+        grantedBy,
+        note,
+        actionType,
+        type: 'ADMIN_GRANT',
+        method: actionType === 'ADD' ? 'Admin Minutes Credit (+)' : 'Admin Minutes Debit (-)'
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success && data.user) {
+      const users = getUsersDb();
+      users[cleanId] = data.user;
+      saveUsersDb(users);
+      if (data.tx) addTransactionLog(data.tx);
+
+      const msg = actionType === 'ADD'
+        ? `Successfully added +${minutesAmount} consultation minutes to User ID: ${cleanId}. New Balance: ${data.user.availableMinutes} mins.`
+        : `Successfully deducted -${minutesAmount} consultation minutes from User ID: ${cleanId}. New Balance: ${data.user.availableMinutes} mins.`;
+
+      return { success: true, message: msg, user: data.user };
+    } else if (data.error) {
+      return { success: false, message: `❌ ${data.error}` };
+    }
+  } catch (e) {
+    console.error('Server recharge error, checking local:', e);
+  }
+
+  // Fallback to local
+  return adminRechargeUser(targetUserId, minutesAmount, grantedBy, note, actionType);
+}
+
+// Admin / Astrologer ID Recharge function (Sync Fallback + Server Push)
 export function adminRechargeUser(
   targetUserId: string,
   minutesAmount: number,
@@ -537,6 +635,21 @@ export function adminRechargeUser(
 
   users[cleanId] = targetUser;
   saveUsersDb(users);
+
+  // Background server sync
+  fetch('/api/users/recharge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userId: cleanId,
+      minutes: minutesAmount,
+      grantedBy,
+      note,
+      actionType,
+      type: 'ADMIN_GRANT',
+      method: actionType === 'ADD' ? 'Admin Minutes Credit (+)' : 'Admin Minutes Debit (-)'
+    })
+  }).catch(e => console.error('Error syncing admin recharge to server:', e));
 
   // Record transaction
   addTransactionLog({

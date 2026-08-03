@@ -259,20 +259,29 @@ app.post("/api/users/update", (req, res) => {
   const { userId, updates } = req.body;
   const cleanId = (userId || "").trim().toUpperCase();
 
-  if (!serverDb.users[cleanId]) {
+  const userKey = Object.keys(serverDb.users).find(
+    k => k.trim().toUpperCase() === cleanId || (serverDb.users[k] && serverDb.users[k].id && serverDb.users[k].id.trim().toUpperCase() === cleanId)
+  );
+
+  if (!userKey || !serverDb.users[userKey]) {
     return res.status(404).json({ error: `User ID '${cleanId}' not found.` });
   }
 
-  serverDb.users[cleanId] = { ...serverDb.users[cleanId], ...updates };
+  serverDb.users[userKey] = { ...serverDb.users[userKey], ...updates };
   saveServerDb();
 
-  return res.json({ success: true, user: serverDb.users[cleanId] });
+  return res.json({ success: true, user: serverDb.users[userKey] });
 });
 
 app.post("/api/users/deduct-minute", (req, res) => {
   const { userId } = req.body;
   const cleanId = (userId || "").trim().toUpperCase();
-  const user = serverDb.users[cleanId];
+
+  const userKey = Object.keys(serverDb.users).find(
+    k => k.trim().toUpperCase() === cleanId || (serverDb.users[k] && serverDb.users[k].id && serverDb.users[k].id.trim().toUpperCase() === cleanId)
+  );
+
+  const user = userKey ? serverDb.users[userKey] : null;
 
   if (!user) {
     return res.status(404).json({ error: `User ID '${cleanId}' not found.` });
@@ -295,7 +304,12 @@ app.post("/api/users/deduct-minute", (req, res) => {
 app.post("/api/users/recharge", (req, res) => {
   const { userId, minutes, amountPaid, type, method, grantedBy, note, actionType } = req.body;
   const cleanId = (userId || "").trim().toUpperCase();
-  const user = serverDb.users[cleanId];
+
+  const userKey = Object.keys(serverDb.users).find(
+    k => k.trim().toUpperCase() === cleanId || (serverDb.users[k] && serverDb.users[k].id && serverDb.users[k].id.trim().toUpperCase() === cleanId)
+  );
+
+  const user = userKey ? serverDb.users[userKey] : null;
 
   if (!user) {
     return res.status(404).json({ error: `User ID '${cleanId}' does not exist on server.` });
