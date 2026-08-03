@@ -19,7 +19,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { UserProfile, KundaliChartData } from '../types';
-import { calculateVedicKundali, ZODIAC_SIGNS } from '../utils/astrologyEngine';
+import { calculateVedicKundali, ZODIAC_SIGNS, getDetailedNakshatraAndPanchang, calculateCareerProbability } from '../utils/astrologyEngine';
 import { generateKundaliPDF } from '../utils/pdfGenerator';
 
 interface KundaliViewProps {
@@ -65,6 +65,16 @@ export const KundaliView: React.FC<KundaliViewProps> = ({
     isUnknownTime ? '12:00' : formData.tob,
     formData.name
   );
+
+  // Detailed Nakshatra & Panchang Verification at Birth Time & Location
+  const nakshatraDetail = getDetailedNakshatraAndPanchang(
+    formData.dob,
+    isUnknownTime ? '12:00' : formData.tob,
+    formData.pob
+  );
+
+  // Career & Life Probability Calculation
+  const careerProb = calculateCareerProbability(formData.name, formData.dob, isUnknownTime ? '12:00' : formData.tob);
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -338,6 +348,84 @@ export const KundaliView: React.FC<KundaliViewProps> = ({
             </form>
           </div>
 
+          {/* Professional Nakshatra & Birth Detail Verification Card */}
+          <div className="bg-gradient-to-br from-indigo-950/80 via-purple-950/70 to-slate-900/80 border border-indigo-500/30 rounded-3xl p-5 shadow-2xl relative overflow-hidden space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-indigo-500/20">
+              <div className="flex items-center gap-2">
+                <Compass className="w-4 h-4 text-amber-400 animate-spin-slow" />
+                <h3 className="font-bold text-xs text-amber-200 uppercase tracking-wider">
+                  Birth Nakshatra & Panchang Report
+                </h3>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                <span>Astronomically Verified</span>
+              </span>
+            </div>
+
+            {/* Main Nakshatra Banner */}
+            <div className="p-3.5 rounded-2xl bg-black/40 border border-indigo-500/20 flex items-center justify-between gap-3">
+              <div>
+                <span className="text-[10px] text-indigo-300 block font-semibold uppercase tracking-wider">Janma Nakshatra (जन्म नक्षत्र)</span>
+                <div className="font-serif font-bold text-lg text-white flex items-center gap-2 mt-0.5">
+                  <span>{nakshatraDetail.nakshatraName}</span>
+                  <span className="text-xs text-amber-300">({nakshatraDetail.nakshatraHindi})</span>
+                </div>
+                <p className="text-[10px] text-gray-300 mt-0.5">
+                  Symbol: <strong>{nakshatraDetail.symbol}</strong> • Deity: <strong>{nakshatraDetail.deity}</strong>
+                </p>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="text-[10px] text-gray-400 block font-mono">Pada (चरण)</span>
+                <div className="text-xl font-extrabold text-amber-400 font-serif">
+                  Pada {nakshatraDetail.pada}
+                </div>
+              </div>
+            </div>
+
+            {/* Nakshatra Parashari Attributes Grid */}
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+                <span className="text-[10px] text-gray-400 block">Nakshatra Lord (स्वामी)</span>
+                <span className="font-bold text-white">{nakshatraDetail.lord}</span>
+                <span className="text-[10px] text-amber-300 block">{nakshatraDetail.lordHindi}</span>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+                <span className="text-[10px] text-gray-400 block">Temperament (गण)</span>
+                <span className="font-bold text-white">{nakshatraDetail.gana} Gana</span>
+                <span className="text-[10px] text-indigo-300 block">{nakshatraDetail.ganaHindi}</span>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+                <span className="text-[10px] text-gray-400 block">Nadi (नाड़ी)</span>
+                <span className="font-bold text-white">{nakshatraDetail.nadi} Nadi</span>
+                <span className="text-[10px] text-indigo-300 block">{nakshatraDetail.nadiHindi}</span>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
+                <span className="text-[10px] text-gray-400 block">Animal Yoni (योनि)</span>
+                <span className="font-bold text-white truncate block">{nakshatraDetail.yoni}</span>
+              </div>
+            </div>
+
+            {/* Panchang Summary at Birth Time */}
+            <div className="pt-2 border-t border-white/10 space-y-1.5 text-[10px]">
+              <div className="flex items-center justify-between text-indigo-200">
+                <span className="text-gray-400">Birth Tithi:</span>
+                <span className="font-bold text-white">{nakshatraDetail.tithi}</span>
+              </div>
+              <div className="flex items-center justify-between text-indigo-200">
+                <span className="text-gray-400">Birth Yoga & Karana:</span>
+                <span className="font-semibold text-indigo-300">{nakshatraDetail.yoga} • {nakshatraDetail.karana}</span>
+              </div>
+              <div className="flex items-center justify-between text-gray-400 pt-1 text-[9px] font-mono">
+                <span>Location: {formData.pob}</span>
+                <span>Sunrise: {nakshatraDetail.sunriseTime}</span>
+              </div>
+            </div>
+          </div>
+
           {/* Core Astro Pillars Card */}
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-5 shadow-xl space-y-3">
             <h3 className="font-semibold text-sm text-indigo-200 pb-2 border-b border-white/10">
@@ -445,6 +533,82 @@ export const KundaliView: React.FC<KundaliViewProps> = ({
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* Career & Life Probability Scorecard */}
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-white/10">
+              <h3 className="font-bold text-sm text-amber-200 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-400" />
+                <span>Kundali Life & Career Success Probabilities (%)</span>
+              </h3>
+              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono font-bold border border-amber-400/30">
+                10th House Transit
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Job Promotion & Hike */}
+              <div className="p-4 rounded-2xl bg-black/40 border border-emerald-500/30 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-300 font-medium">Job Promotion / Salary Hike</span>
+                  <span className="text-sm font-bold text-emerald-400">{careerProb.jobPromotionChance}%</span>
+                </div>
+                <div className="w-full bg-black/60 h-2 rounded-full overflow-hidden border border-emerald-500/20">
+                  <div
+                    className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full"
+                    style={{ width: `${careerProb.jobPromotionChance}%` }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Govt Job & Exams */}
+              <div className="p-4 rounded-2xl bg-black/40 border border-indigo-500/30 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-300 font-medium">Government Job / Govt Exam</span>
+                  <span className="text-sm font-bold text-indigo-300">{careerProb.governmentJobChance}%</span>
+                </div>
+                <div className="w-full bg-black/60 h-2 rounded-full overflow-hidden border border-indigo-500/20">
+                  <div
+                    className="bg-gradient-to-r from-indigo-500 to-purple-400 h-full rounded-full"
+                    style={{ width: `${careerProb.governmentJobChance}%` }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Business Expansion */}
+              <div className="p-4 rounded-2xl bg-black/40 border border-amber-500/30 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-300 font-medium">Business Ownership & Profits</span>
+                  <span className="text-sm font-bold text-amber-300">{careerProb.businessExpansionChance}%</span>
+                </div>
+                <div className="w-full bg-black/60 h-2 rounded-full overflow-hidden border border-amber-500/20">
+                  <div
+                    className="bg-gradient-to-r from-amber-500 to-orange-400 h-full rounded-full"
+                    style={{ width: `${careerProb.businessExpansionChance}%` }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Foreign Placement */}
+              <div className="p-4 rounded-2xl bg-black/40 border border-rose-500/30 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-300 font-medium">Foreign Placement & Settlement</span>
+                  <span className="text-sm font-bold text-rose-300">{careerProb.foreignPlacementChance}%</span>
+                </div>
+                <div className="w-full bg-black/60 h-2 rounded-full overflow-hidden border border-rose-500/20">
+                  <div
+                    className="bg-gradient-to-r from-rose-500 to-pink-400 h-full rounded-full"
+                    style={{ width: `${careerProb.foreignPlacementChance}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-black/30 border border-white/5 text-xs text-gray-300 space-y-1">
+              <span className="font-bold text-indigo-300 block">Best Favorable Career Path:</span>
+              <p>{careerProb.bestCareerField}</p>
             </div>
           </div>
 

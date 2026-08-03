@@ -119,53 +119,79 @@ export function getActiveUserId(): string {
   try {
     const id = localStorage.getItem(STORAGE_CURRENT_ID_KEY);
     if (id && getUsersDb()[id]) return id;
-    const firstId = Object.keys(getUsersDb())[0] || '880101';
-    localStorage.setItem(STORAGE_CURRENT_ID_KEY, firstId);
-    return firstId;
+    // Do NOT auto-set a dummy account like 880101 with free minutes!
+    return id || '';
   } catch (e) {
-    return '880101';
+    return '';
   }
 }
 
 export function setActiveUserId(userId: string) {
   try {
-    localStorage.setItem(STORAGE_CURRENT_ID_KEY, userId);
+    if (!userId) {
+      localStorage.removeItem(STORAGE_CURRENT_ID_KEY);
+    } else {
+      localStorage.setItem(STORAGE_CURRENT_ID_KEY, userId);
+    }
   } catch (e) {
     console.error('Error setting active user ID:', e);
   }
 }
 
-export function getActiveUserProfile(): UserProfile {
-  const users = getUsersDb();
-  const id = getActiveUserId();
-  if (users[id]) return users[id];
-
-  const firstId = Object.keys(users)[0];
-  if (firstId) {
-    setActiveUserId(firstId);
-    return users[firstId];
+export function logoutUser() {
+  try {
+    localStorage.removeItem(STORAGE_CURRENT_ID_KEY);
+  } catch (e) {
+    console.error('Error logging out user:', e);
   }
-
-  // If no user exists, create default
-  const newProfile: UserProfile = {
-    id: '880101',
-    name: 'Astro Seeker',
-    pin: '1234',
-    gender: 'male',
-    dob: '1998-05-15',
-    tob: '12:00',
-    pob: 'Mumbai, India',
-    availableMinutes: 15,
-    totalRechargedMinutes: 15,
-    createdAt: new Date().toISOString()
-  };
-  users['880101'] = newProfile;
-  saveUsersDb(users);
-  setActiveUserId('880101');
-  return newProfile;
 }
 
-// Live lookup of existing user by User ID
+export function getActiveUserProfile(): UserProfile | null {
+  const users = getUsersDb();
+  const id = getActiveUserId();
+  if (id && users[id]) return users[id];
+  return null;
+}
+
+// Sync all users from server
+export async function syncAllUsersFromServer(): Promise<{ [id: string]: UserProfile }> {
+  try {
+    const res = await fetch('/api/users');
+    if (res.ok) {
+      const serverUsers = await res.json();
+      if (serverUsers && Object.keys(serverUsers).length > 0) {
+        saveUsersDb(serverUsers);
+        return serverUsers;
+      }
+    }
+  } catch (e) {
+    console.error('Error syncing users from server:', e);
+  }
+  return getUsersDb();
+}
+
+// Live lookup of existing user by User ID (Server + Cache)
+export async function fetchUserByIdAsync(userId: string): Promise<UserProfile | null> {
+  if (!userId) return null;
+  const clean = userId.trim().toUpperCase();
+  try {
+    const res = await fetch(`/api/users/${encodeURIComponent(clean)}`);
+    if (res.ok) {
+      const user = await res.json();
+      const users = getUsersDb();
+      users[clean] = user;
+      saveUsersDb(users);
+      return user;
+    }
+  } catch (e) {
+    console.error('Error fetching user from server:', e);
+  }
+
+  // Fallback to cache
+  const users = getUsersDb();
+  return users[clean] || null;
+}
+
 export function fetchUserById(userId: string): UserProfile | null {
   if (!userId) return null;
   const users = getUsersDb();
@@ -250,7 +276,43 @@ export function generateNumericUserId(): string {
   return id;
 }
 
-// Verify User Password / PIN for Account Switch / Login
+// Verify User Password / PIN for Account Switch / Login (Server + Local Fallback)
+export async function verifyUserPinAsync(
+  userId: string,
+  pinInput: string
+): Promise<{ success: boolean; message: string; user?: UserProfile }> {
+  const cleanId = userId.trim().toUpperCase();
+  try {
+    const res = await fetch('/api/users/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: cleanId, pin: pinInput })
+    });
+    const data = await res.json();
+    if (res.ok && data.success && data.user) {
+      const users = getUsersDb();
+      users[cleanId] = data.user;
+      saveUsersDb(users);
+      setActiveUserId(cleanId);
+      return {
+        success: true,
+        message: `Logged in successfully as ${data.user.name} (${data.user.id})!`,
+        user: data.user
+      };
+    } else {
+      return {
+        success: false,
+        message: data.error || 'Incorrect User ID or Security PIN!'
+      };
+    }
+  } catch (e) {
+    console.error('Server login error, using local check:', e);
+  }
+
+  // Fallback to local
+  return verifyUserPin(cleanId, pinInput);
+}
+
 export function verifyUserPin(userId: string, pinInput: string): { success: boolean; message: string; user?: UserProfile } {
   const user = fetchUserById(userId);
   if (!user) {
@@ -269,6 +331,39 @@ export function verifyUserPin(userId: string, pinInput: string): { success: bool
     message: `Logged in successfully as ${user.name} (${user.id})!`,
     user
   };
+}
+
+export async function createNewUserAsync(params: {
+  id?: string;
+  name: string;
+  email?: string;
+  dob?: string;
+  tob?: string;
+  pob?: string;
+  gender?: string;
+  pin?: string;
+  initialMinutes?: number;
+}): Promise<{ success: boolean; message?: string; user?: UserProfile }> {
+  try {
+    const res = await fetch('/api/users/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params)
+    });
+    const data = await res.json();
+    if (res.ok && data.success && data.user) {
+      const users = getUsersDb();
+      users[data.user.id] = data.user;
+      saveUsersDb(users);
+      setActiveUserId(data.user.id);
+      return { success: true, user: data.user };
+    } else {
+      return { success: false, message: data.error || 'Failed to create user account' };
+    }
+  } catch (e: any) {
+    console.error('Error creating user on server:', e);
+    return { success: false, message: e.message || 'Server connection error' };
+  }
 }
 
 export function createNewUser(id?: string, name?: string, initialMinutes = 15, userPin = '1234'): UserProfile {
@@ -484,6 +579,13 @@ export function deductConsultationMinute(): { hasMinutes: boolean; remainingMinu
   user.availableMinutes = Math.max(0, user.availableMinutes - 1);
   users[activeId] = user;
   saveUsersDb(users);
+
+  // Sync deduction with server in background
+  fetch('/api/users/deduct-minute', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: activeId })
+  }).catch(err => console.error('Error syncing minute deduction to server:', err));
 
   return { hasMinutes: user.availableMinutes > 0, remainingMinutes: user.availableMinutes };
 }

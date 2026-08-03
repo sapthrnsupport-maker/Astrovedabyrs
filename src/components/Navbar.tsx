@@ -22,16 +22,17 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { UserProfile } from '../types';
-import { loginWithGoogleAccount, createNewUser, fetchUserById, verifyUserPin } from '../utils/minutesManager';
+import { loginWithGoogleAccount, createNewUser, fetchUserById, verifyUserPin, verifyUserPinAsync, logoutUser } from '../utils/minutesManager';
 import { PrivateProfileModal } from './PrivateProfileModal';
 
 interface NavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  userProfile: UserProfile;
+  userProfile: UserProfile | null;
   onRefreshProfile: () => void;
   onOpenRechargeModal: (mode?: 'USER_BUY' | 'ADMIN_GRANT') => void;
   isConsultationActive: boolean;
+  onOpenAuthModal?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -40,7 +41,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   userProfile,
   onRefreshProfile,
   onOpenRechargeModal,
-  isConsultationActive
+  isConsultationActive,
+  onOpenAuthModal
 }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showGoogleModal, setShowGoogleModal] = useState(false);
@@ -84,38 +86,31 @@ export const Navbar: React.FC<NavbarProps> = ({
     }, 1000);
   };
 
-  const handleCustomIdAuthSubmit = (e: React.FormEvent) => {
+  const handleCustomIdAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
     const targetId = newUserIdInput.trim();
     if (!targetId) return;
 
-    // Check if user already exists
-    const existing = fetchUserById(targetId);
+    if (!userPinInput.trim()) {
+      setLoginError('Security PIN is required to log in!');
+      return;
+    }
 
-    if (existing) {
-      // Existing User -> Verify Security PIN
-      if (!userPinInput.trim()) {
-        setLoginError('Security PIN is required to log in!');
-        return;
-      }
-
-      const res = verifyUserPin(targetId, userPinInput.trim());
-      if (res.success) {
-        onRefreshProfile();
-        setNewUserIdInput('');
-        setUserPinInput('');
-        setNewUserNameInput('');
-        setIsCreatingUser(false);
-        setShowUserDropdown(false);
-      } else {
-        setLoginError(res.message);
-      }
+    const res = await verifyUserPinAsync(targetId, userPinInput.trim());
+    if (res.success) {
+      onRefreshProfile();
+      setNewUserIdInput('');
+      setUserPinInput('');
+      setNewUserNameInput('');
+      setIsCreatingUser(false);
+      setShowUserDropdown(false);
     } else {
-      // Strict Check: Reject creating new users from Navbar
-      setLoginError(`❌ User ID '${targetId}' does NOT exist! New accounts can only be created by the Admin. Please contact Admin or check your ID.`);
+      setLoginError(res.message || `❌ Login failed for User ID '${targetId}'.`);
     }
   };
+
+  const availableMinutes = userProfile?.availableMinutes ?? 0;
 
   return (
     <header className="sticky top-0 z-40 bg-white/5 backdrop-blur-xl border-b border-white/10 shadow-xl">
@@ -144,56 +139,89 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right Action Bar */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* User ID Profile Selector Dropdown */}
-            <div className="relative">
+            {/* User ID Profile Selector Dropdown or Sign In Button */}
+            {!userProfile ? (
               <button
-                id="user-profile-selector"
-                onClick={() => setShowUserDropdown(!showUserDropdown)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 hover:border-white/20 transition-all text-xs text-white backdrop-blur-md"
+                onClick={onOpenAuthModal}
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 transition-all text-xs text-white font-bold shadow-lg shadow-indigo-600/30 cursor-pointer"
               >
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-[10px]">
-                  {userProfile.name.charAt(0)}
-                </div>
-                <div className="text-left hidden md:block">
-                  <div className="font-semibold text-white truncate max-w-[100px]">{userProfile.name}</div>
-                  <div className="text-[10px] text-indigo-300 font-mono">{userProfile.id}</div>
-                </div>
-                <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                <User className="w-4 h-4" />
+                <span>Sign In / Register</span>
               </button>
-
-              {/* User Dropdown Menu */}
-              {showUserDropdown && (
-                <div className="absolute right-0 mt-2 w-72 bg-[#0a0518]/95 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl p-4 z-50 space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                    <span className="text-xs font-semibold text-indigo-200">Account & Authentication</span>
-                    <span className="text-[10px] text-gray-400 font-mono">Protected</span>
+            ) : (
+              <div className="relative">
+                <button
+                  id="user-profile-selector"
+                  onClick={() => setShowUserDropdown(!showUserDropdown)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 hover:border-white/20 transition-all text-xs text-white backdrop-blur-md cursor-pointer"
+                >
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-[10px]">
+                    {userProfile.name.charAt(0)}
                   </div>
+                  <div className="text-left hidden md:block">
+                    <div className="font-semibold text-white truncate max-w-[100px]">{userProfile.name}</div>
+                    <div className="text-[10px] text-indigo-300 font-mono">{userProfile.id}</div>
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                </button>
 
-                  {/* Active Profile Info Box */}
-                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-white text-xs">{userProfile.name}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-bold">
-                        {userProfile.availableMinutes} Mins
-                      </span>
+                {/* User Dropdown Menu */}
+                {showUserDropdown && (
+                  <div className="absolute right-0 mt-2 w-72 bg-[#0a0518]/95 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl p-4 z-50 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                      <span className="text-xs font-semibold text-indigo-200">Account & Authentication</span>
+                      <span className="text-[10px] text-gray-400 font-mono">Protected</span>
                     </div>
-                    <div className="text-[10px] text-gray-400 font-mono">ID: {userProfile.id}</div>
-                  </div>
 
-                  {/* Private Profile & Password Section Button */}
-                  <button
-                    onClick={() => {
-                      setShowPrivateModal(true);
-                      setShowUserDropdown(false);
-                    }}
-                    className="w-full py-2 px-3 rounded-xl bg-purple-500/20 border border-purple-500/30 hover:bg-purple-500/30 text-purple-200 font-bold text-xs flex items-center justify-between transition-all cursor-pointer shadow-md"
-                  >
-                    <span className="flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-purple-400" />
-                      <span>Private Section & Password</span>
-                    </span>
-                    <span className="text-[10px] bg-purple-500/30 text-purple-200 px-1.5 py-0.5 rounded font-mono">Change PIN</span>
-                  </button>
+                    {/* Active Profile Info Box */}
+                    {userProfile ? (
+                      <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-white text-xs">{userProfile.name}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-bold">
+                            {userProfile.availableMinutes} Mins
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-gray-400 font-mono">ID: {userProfile.id}</div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-center">
+                        <span className="font-bold text-amber-300 text-xs block">Guest User (Unauthenticated)</span>
+                        <span className="text-[10px] text-gray-400 block">Please sign in to access your minutes</span>
+                      </div>
+                    )}
+
+                    {/* Private Profile & Password Section Button */}
+                    {userProfile && (
+                      <button
+                        onClick={() => {
+                          setShowPrivateModal(true);
+                          setShowUserDropdown(false);
+                        }}
+                        className="w-full py-2 px-3 rounded-xl bg-purple-500/20 border border-purple-500/30 hover:bg-purple-500/30 text-purple-200 font-bold text-xs flex items-center justify-between transition-all cursor-pointer shadow-md"
+                      >
+                        <span className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-purple-400" />
+                          <span>Private Section & Password</span>
+                        </span>
+                        <span className="text-[10px] bg-purple-500/30 text-purple-200 px-1.5 py-0.5 rounded font-mono">Change PIN</span>
+                      </button>
+                    )}
+
+                    {/* Log Out Button */}
+                    {userProfile && (
+                      <button
+                        onClick={() => {
+                          logoutUser();
+                          onRefreshProfile();
+                          setShowUserDropdown(false);
+                        }}
+                        className="w-full py-2 px-3 rounded-xl bg-rose-500/15 border border-rose-500/30 hover:bg-rose-500/25 text-rose-200 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
+                      >
+                        <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Log Out / Switch Account</span>
+                      </button>
+                    )}
 
                   {/* Google Sign-In Button ("Id banane ke liye google sign kro") */}
                   <button
@@ -322,31 +350,32 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               )}
             </div>
+          )}
 
             {/* Live Consultation Minutes Badge */}
             <div
               onClick={() => onOpenRechargeModal('USER_BUY')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border backdrop-blur-md cursor-pointer transition-all ${
-                userProfile.availableMinutes <= 0
+                availableMinutes <= 0
                   ? 'bg-rose-600/30 border-rose-500/60 text-rose-200 animate-pulse shadow-lg shadow-rose-600/40'
                   : isConsultationActive
                   ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300 animate-pulse shadow-lg shadow-emerald-500/20'
-                  : userProfile.availableMinutes <= 2
+                  : availableMinutes <= 2
                   ? 'bg-amber-500/20 border-amber-400/40 text-amber-300'
                   : 'bg-white/10 border-white/10 text-white hover:bg-white/15'
               }`}
               title="Click to top up consultation minutes"
             >
-              {userProfile.availableMinutes <= 0 ? (
+              {availableMinutes <= 0 ? (
                 <AlertTriangle className="w-4 h-4 text-rose-400 animate-bounce" />
               ) : (
                 <Clock className="w-3.5 h-3.5 text-indigo-300" />
               )}
               <div className="flex flex-col">
                 <span className="text-xs font-bold leading-tight">
-                  {userProfile.availableMinutes} <span className="text-[10px] font-normal text-gray-300">Mins</span>
+                  {availableMinutes} <span className="text-[10px] font-normal text-gray-300">Mins</span>
                 </span>
-                {userProfile.availableMinutes <= 0 ? (
+                {availableMinutes <= 0 ? (
                   <span className="text-[9px] font-bold text-rose-300 uppercase tracking-tight">
                     Recharge Needed
                   </span>
@@ -363,7 +392,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               id="topup-minutes-btn"
               onClick={() => onOpenRechargeModal('USER_BUY')}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full font-bold text-xs shadow-lg transition-all ${
-                userProfile.availableMinutes <= 0
+                availableMinutes <= 0
                   ? 'bg-gradient-to-r from-amber-500 to-rose-600 text-white shadow-rose-600/40 animate-pulse hover:scale-105'
                   : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-indigo-600/30 hover:brightness-110 active:scale-95'
               }`}

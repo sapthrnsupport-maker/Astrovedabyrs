@@ -42,9 +42,19 @@ const PRESET_CATEGORIES: { [key: string]: { label: string; icon: string } } = {
 
 const FEATURED_PRESETS: CategorizedPreset[] = [
   {
+    category: 'crush',
+    label: '💖 Crush Manegi Ya Nahi? (%)',
+    prompt: 'Kya meri crush mere proposal ko accept karegi? Humare Kundali Mulank, Bhagyank, aur 5th House Shukra Grah ke hisab se kitne percent (80%+, 90%+) chances hain ki vo HAA bolegi?'
+  },
+  {
+    category: 'crush',
+    label: '💘 Crush Feelings & Best Proposal Time',
+    prompt: 'Kya mere crush ke dil me mere liye romantic feelings hain? Humare beech bonding, mutual attraction %, aur proposal ka sabse auspicious time (din aur samay) batayein.'
+  },
+  {
     category: 'ex',
     label: '💔 Recent Ex Return & Karmic Bond',
-    prompt: 'Meri recent ex mere paas wapas aayegi ya nahi? Humare beech karmic connection aur closure ki astrological prediction batayein.'
+    prompt: 'Meri recent ex mere paas wapas aayegi ya nahi? Reconnection probability kitni percent hai, aur move on karne me mera fayda hai ya nahi?'
   },
   {
     category: 'ex',
@@ -52,24 +62,14 @@ const FEATURED_PRESETS: CategorizedPreset[] = [
     prompt: 'Kya meri ex abhi bhi mere baare me sochti hai? Kya aage humari baat ho sakti hai ya move on karna sahi rahega?'
   },
   {
-    category: 'crush',
-    label: '💘 Crush Feelings & Mutual Attraction',
-    prompt: 'Kya mere crush ke dil me mere liye romantic feelings hain? Humare beech bonding aur proposal ka best astrological time kab hai?'
-  },
-  {
-    category: 'crush',
-    label: '💘 Will Crush Accept My Proposal?',
-    prompt: 'Jab main apne crush ko propose karunga/karungi toh response kaisa rahega? Venus aur 5th House ka transit kya batata hai?'
+    category: 'career',
+    label: '💼 Job Promotion & Salary Hike (%)',
+    prompt: 'Mujhe job me promotion aur salary hike milne ke kitne percent chances hain? 10th House aur Sun/Saturn transit ka detailed calculation batayein.'
   },
   {
     category: 'career',
-    label: '💼 Best Career Field & High Income',
+    label: '💼 Best Career Field & Business Luck',
     prompt: 'Mere 10th House aur Sun/Saturn placements ke hisab se konsi career field (Job ya Business) mere liye sabse best aur lucrative rahegi?'
-  },
-  {
-    category: 'career',
-    label: '💼 Job Change & Promotion Timing',
-    prompt: 'Mujhe job me promotion, salary hike, ya accha job change kab tak milega? Present Dasha period ka kya effect hai?'
   },
   {
     category: 'timeline',

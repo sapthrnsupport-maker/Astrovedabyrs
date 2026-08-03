@@ -8,26 +8,36 @@ import { UserProfile } from './types';
 import {
   getActiveUserProfile,
   updateUserProfile,
-  deductConsultationMinute
+  deductConsultationMinute,
+  syncAllUsersFromServer
 } from './utils/minutesManager';
 import { Navbar } from './components/Navbar';
 import { MinutesModal } from './components/MinutesModal';
+import { AuthModal } from './components/AuthModal';
 import { KundaliView } from './components/KundaliView';
 import { AiAstrologerChat } from './components/AiAstrologerChat';
 import { NumerologyView } from './components/NumerologyView';
 import { CompatibilityView } from './components/CompatibilityView';
 import { DailyHoroscope } from './components/DailyHoroscope';
 import { AdminPanel } from './components/AdminPanel';
-import { Sparkles, Heart, AlertTriangle, Zap, Clock } from 'lucide-react';
+import { Sparkles, Heart, AlertTriangle, Zap, Clock, LogIn, UserPlus } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('kundali');
-  const [userProfile, setUserProfile] = useState<UserProfile>(getActiveUserProfile());
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(getActiveUserProfile());
   const [isRechargeModalOpen, setIsRechargeModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'USER_BUY' | 'ADMIN_GRANT'>('USER_BUY');
   const [isConsultationActive, setIsConsultationActive] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  // Refresh active user profile from local storage
+  // Sync users with server on mount
+  useEffect(() => {
+    syncAllUsersFromServer().then(() => {
+      setUserProfile(getActiveUserProfile());
+    });
+  }, []);
+
+  // Refresh active user profile
   const handleRefreshProfile = () => {
     setUserProfile(getActiveUserProfile());
   };
@@ -39,6 +49,10 @@ export default function App() {
 
   // Open Recharge / Topup Modal
   const handleOpenRechargeModal = (mode: 'USER_BUY' | 'ADMIN_GRANT' = 'USER_BUY') => {
+    if (!userProfile) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     setModalMode(mode);
     setIsRechargeModalOpen(true);
   };
@@ -58,7 +72,7 @@ export default function App() {
   // Active consultation live timer: Deduct 1 minute every 60 seconds when active session is running
   useEffect(() => {
     let timer: any = null;
-    if (isConsultationActive && userProfile.availableMinutes > 0) {
+    if (isConsultationActive && userProfile && userProfile.availableMinutes > 0) {
       timer = setInterval(() => {
         const res = deductConsultationMinute();
         handleRefreshProfile();
@@ -73,7 +87,20 @@ export default function App() {
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isConsultationActive, userProfile.availableMinutes]);
+  }, [isConsultationActive, userProfile?.availableMinutes]);
+
+  // Fallback profile if userProfile is null
+  const currentProfile: UserProfile = userProfile || {
+    id: 'GUEST',
+    name: 'Guest User',
+    gender: 'male',
+    dob: '2000-01-01',
+    tob: '12:00',
+    pob: 'New Delhi, India',
+    availableMinutes: 0,
+    totalRechargedMinutes: 0,
+    createdAt: new Date().toISOString()
+  };
 
   return (
     <div className="min-h-screen bg-[#080312] text-slate-100 font-sans selection:bg-indigo-500 selection:text-white antialiased flex flex-col relative overflow-hidden">
@@ -90,12 +117,41 @@ export default function App() {
         onRefreshProfile={handleRefreshProfile}
         onOpenRechargeModal={handleOpenRechargeModal}
         isConsultationActive={isConsultationActive}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
       />
 
       {/* Main App Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 z-10">
+        {/* Welcome Sign In Callout when not logged in */}
+        {!userProfile && (
+          <div className="mb-8 p-6 rounded-3xl bg-gradient-to-r from-indigo-950/90 via-purple-950/80 to-slate-900/90 border border-indigo-500/30 shadow-2xl shadow-indigo-950/50 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="space-y-1 text-center md:text-left">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-xs font-semibold">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Welcome to AstroVeda AI</span>
+              </div>
+              <h3 className="text-xl font-bold font-serif text-white">
+                Sign In to access your unique Kundali & Minutes Balance
+              </h3>
+              <p className="text-xs text-indigo-200/80 max-w-xl">
+                Aap apna User ID & Security PIN dalkar login karein, ya fir naya account banayein. Har naye account ko apna unique ID aur secure minutes balance milta hai.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:brightness-110 text-white font-bold text-xs shadow-xl shadow-purple-600/30 flex items-center gap-2 cursor-pointer transition-all hover:scale-105"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Sign In / Create Account</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Zero Minutes Warning Notification Banner */}
-        {userProfile.availableMinutes <= 0 && (
+        {userProfile && userProfile.availableMinutes <= 0 && (
           <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-rose-950/80 via-amber-950/70 to-purple-950/80 border border-rose-500/50 shadow-2xl shadow-rose-950/50 flex flex-col sm:flex-row items-center justify-between gap-4 animate-pulse">
             <div className="flex items-center gap-3 text-left">
               <div className="p-2.5 bg-rose-500/20 border border-rose-400/40 rounded-2xl text-rose-300 shrink-0 shadow-lg">
@@ -121,7 +177,7 @@ export default function App() {
         )}
 
         {/* Low Balance Warning Banner (1 or 2 Minutes Left) */}
-        {userProfile.availableMinutes > 0 && userProfile.availableMinutes <= 2 && (
+        {userProfile && userProfile.availableMinutes > 0 && userProfile.availableMinutes <= 2 && (
           <div className="mb-6 p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 text-xs">
               <Clock className="w-4 h-4 text-amber-400 shrink-0" />
@@ -135,11 +191,12 @@ export default function App() {
             </button>
           </div>
         )}
+
         {activeTab === 'kundali' && (
           <KundaliView
-            userProfile={userProfile}
+            userProfile={currentProfile}
             onUpdateProfile={handleUpdateProfile}
-            availableMinutes={userProfile.availableMinutes}
+            availableMinutes={currentProfile.availableMinutes}
             onDeductMinute={handleDeductMinute}
             onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
           />
@@ -147,8 +204,8 @@ export default function App() {
 
         {activeTab === 'chat' && (
           <AiAstrologerChat
-            userProfile={userProfile}
-            availableMinutes={userProfile.availableMinutes}
+            userProfile={currentProfile}
+            availableMinutes={currentProfile.availableMinutes}
             onDeductMinute={handleDeductMinute}
             onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
             isConsultationActive={isConsultationActive}
@@ -158,8 +215,8 @@ export default function App() {
 
         {activeTab === 'numerology' && (
           <NumerologyView
-            userProfile={userProfile}
-            availableMinutes={userProfile.availableMinutes}
+            userProfile={currentProfile}
+            availableMinutes={currentProfile.availableMinutes}
             onDeductMinute={handleDeductMinute}
             onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
             onUpdateProfile={handleUpdateProfile}
@@ -168,8 +225,8 @@ export default function App() {
 
         {activeTab === 'compatibility' && (
           <CompatibilityView
-            userProfile={userProfile}
-            availableMinutes={userProfile.availableMinutes}
+            userProfile={currentProfile}
+            availableMinutes={currentProfile.availableMinutes}
             onDeductMinute={handleDeductMinute}
             onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
           />
@@ -177,7 +234,7 @@ export default function App() {
 
         {activeTab === 'rashifal' && (
           <DailyHoroscope
-            availableMinutes={userProfile.availableMinutes}
+            availableMinutes={currentProfile.availableMinutes}
             onDeductMinute={handleDeductMinute}
             onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
           />
@@ -186,11 +243,21 @@ export default function App() {
         {activeTab === 'admin' && <AdminPanel onRefreshProfile={handleRefreshProfile} />}
       </main>
 
+      {/* Auth Modal (Sign In / Register) */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={(profile) => {
+          setUserProfile(profile);
+          setIsAuthModalOpen(false);
+        }}
+      />
+
       {/* Recharge & Admin Grant Modal */}
       <MinutesModal
         isOpen={isRechargeModalOpen}
         onClose={() => setIsRechargeModalOpen(false)}
-        userProfile={userProfile}
+        userProfile={currentProfile}
         onRefreshProfile={handleRefreshProfile}
         initialMode={modalMode}
       />
