@@ -22,6 +22,7 @@ import { CompatibilityView } from './components/CompatibilityView';
 import { DailyHoroscope } from './components/DailyHoroscope';
 import { AdminPanel } from './components/AdminPanel';
 import { GurujiFrontShowcase } from './components/GurujiFrontShowcase';
+import { PalmReadingView } from './components/PalmReadingView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Sparkles, Heart, AlertTriangle, Zap, Clock, LogIn, UserPlus } from 'lucide-react';
 
@@ -208,6 +209,7 @@ export default function App() {
                 <div className="space-y-8">
                   <GurujiFrontShowcase
                     onStartChat={() => setActiveTab('chat')}
+                    onOpenPalmReading={() => setActiveTab('palm')}
                     availableMinutes={currentProfile.availableMinutes}
                     onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
                   />
@@ -219,6 +221,18 @@ export default function App() {
                     onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
                   />
                 </div>
+              )}
+
+              {activeTab === 'palm' && (
+                <PalmReadingView
+                  userProfile={currentProfile}
+                  availableMinutes={currentProfile.availableMinutes}
+                  onDeductMinute={handleDeductMinute}
+                  onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
+                  onStartChat={(prompt) => {
+                    setActiveTab('chat');
+                  }}
+                />
               )}
 
               {activeTab === 'chat' && (

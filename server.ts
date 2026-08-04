@@ -339,22 +339,44 @@ app.post("/api/users/deduct-minute", (req, res) => {
 });
 
 app.post("/api/users/recharge", (req, res) => {
-  const { userId, minutes, amountPaid, type, method, grantedBy, note, actionType } = req.body;
+  const { userId, minutes, amountPaid, type, method, grantedBy, note, actionType, userProfile } = req.body;
   const query = (userId || "").trim();
 
-  const user = findUserInServerDb(query);
-
-  if (!user || !user.id) {
-    return res.status(404).json({ error: `User ID or Email '${query}' does not exist on server.` });
-  }
+  let user = findUserInServerDb(query);
 
   const minsNum = Number(minutes) || 0;
 
-  if (actionType === 'DEDUCT') {
-    user.availableMinutes = Math.max(0, user.availableMinutes - minsNum);
+  // Auto-create/upsert user if not found on server database
+  if (!user || !user.id) {
+    let targetId = query.toUpperCase();
+    if (!targetId || targetId === 'NEW-PROFILE') {
+      do {
+        targetId = Math.floor(100000 + Math.random() * 900000).toString();
+      } while (serverDb.users[targetId]);
+    }
+
+    user = {
+      id: targetId,
+      name: userProfile?.name || (userProfile?.email ? userProfile.email.split('@')[0] : `Astro Client ${targetId}`),
+      email: userProfile?.email || '',
+      pin: userProfile?.pin || '1234',
+      gender: userProfile?.gender || 'male',
+      dob: userProfile?.dob || '1998-01-01',
+      tob: userProfile?.tob || '12:00',
+      pob: userProfile?.pob || 'New Delhi, India',
+      availableMinutes: actionType === 'DEDUCT' ? 0 : minsNum,
+      totalRechargedMinutes: actionType === 'DEDUCT' ? 0 : minsNum,
+      createdAt: new Date().toISOString()
+    };
+    serverDb.users[targetId] = user;
   } else {
-    user.availableMinutes += minsNum;
-    user.totalRechargedMinutes += minsNum;
+    if (actionType === 'DEDUCT') {
+      user.availableMinutes = Math.max(0, (user.availableMinutes || 0) - minsNum);
+    } else {
+      user.availableMinutes = (user.availableMinutes || 0) + minsNum;
+      user.totalRechargedMinutes = (user.totalRechargedMinutes || 0) + minsNum;
+    }
+    serverDb.users[user.id] = user;
   }
 
   const tx = {
@@ -371,10 +393,9 @@ app.post("/api/users/recharge", (req, res) => {
   };
 
   serverDb.transactions.unshift(tx);
-  serverDb.users[user.id] = user;
   saveServerDb();
 
-  return res.json({ success: true, user, tx });
+  return res.json({ success: true, user: serverDb.users[user.id], tx });
 });
 
 app.delete("/api/users/:id", (req, res) => {
@@ -819,25 +840,23 @@ app.post("/api/ai/chat", async (req, res) => {
     let systemInstruction = `You are "Guruji Jyotish", an authentic, polite, and deeply knowledgeable AI Vedic & Numerology Astrologer.
 You speak in a warm, respectful tone using friendly English mixed with respectful Hindi/Hinglish terms like 'Pranam', 'Janm Kundali', 'Moolank', 'Bhagyank', 'Graha Dasha', 'Rashi', and 'Upay'.
 
-CRITICAL MANDATES:
-1. ALWAYS CALCULATE & DISPLAY SPECIFIC PERCENTAGE-BASED PROBABILITIES IN YOUR RESPONSE:
-   - Competitive Exams & Studies: "Exam Clearing & Rank Probability: X%", "Focus Index: Y%"
-   - Crush & Proposal ("Crush Manegi Ya Nahi"): "Proposal Acceptance Chance: X%", "Mutual Attraction Chemistry: Y%"
-   - Ex Return & Reconnection: "Ex Reconnection Chance: X%", "Moving On & True Soulmate Arrival: Y%"
-   - Career, Job & Salary Hike: "Job Promotion / Hike Probability: X%", "Career Growth Potential: Y%"
-   - Marriage & Relationships: "Moolank-Bhagyank Compatibility Score: X%", "Marital Bliss Index: Y%"
-   - Wealth, Debt & Finance: "Financial Growth & Debt Clearance: X%", "Property Purchase Yoga: Y%"
+CRITICAL MANDATES & DIRECT QUESTION ANSWERING:
+1. READ THE USER'S EXACT QUESTION CAREFULLY BEFORE ANSWERING:
+   - Your response MUST directly answer the user's specific question (e.g. regarding love, crush, ex, marriage, job, business loss, competitive exams, health, palm lines, family, or travel).
+   - DO NOT copy-paste unrelated templates or dump all categories together! Focus specifically on what the user asked.
 
-2. MANDATORY NUMEROLOGY INTEGRATION (Moolank & Bhagyank Calculations):
-   - Moolank (Driver Number): ${moolankVal} (Ruled by ${moolankInfo.planet} - ${moolankInfo.trait}). Explain how this birth day number governs the user's core personality, intellect, and driving choices.
-   - Bhagyank (Conductor / Life Path Number): ${bhagyankVal} (Ruled by ${bhagyankInfo.planet} - ${bhagyankInfo.trait}). Explain how this life path number governs their ultimate destiny, golden career windows, and karmic timing.
-   - Explicitly detail how Moolank ${moolankVal} and Bhagyank ${bhagyankVal} interact with the user's question to give a tailored, highly specific prediction.
+2. CALCULATE SPECIFIC PERCENTAGE PROBABILITIES & TIMINGS FOR THE USER'S QUESTION:
+   - Provide 1-2 percentage probabilities (e.g., 82% Success Chance, 75% Attraction, 88% Growth) SPECIFIC to the question asked.
+   - Mention key timing windows (e.g., next 2-4 months, or exact year).
 
-3. STRUCTURED & INSIGHTFUL RESPONSE FORMAT:
-   - Start with a respectful greeting mentioning the user's name, Moolank ${moolankVal}, and Rashi.
-   - Include specific percentage ratings in bold.
-   - Give detailed life guidance and future timing (months/years).
-   - End with practical Vedic & Numerological remedies (Upay) matching Moolank ${moolankVal} and Bhagyank ${bhagyankVal} ruling planets.`;
+3. INTEGRATE NUMEROLOGY & ASTROLOGY SPECIFICALLY:
+   - Reference Moolank ${moolankVal} (Ruled by ${moolankInfo.planet}) and Bhagyank ${bhagyankVal} (Ruled by ${bhagyankInfo.planet}) to explain why planetary placements affect their specific situation.
+
+4. RESPONSE STRUCTURE:
+   - Respectful Greeting addressing the user (${kundaliContext?.name || 'Jatak'}) with Moolank & Rashi.
+   - Direct, detailed Astrological analysis answering their specific question.
+   - Specific probability percentage & timeline window in bold.
+   - 2 practical Vedic remedies (Upay) directly targeted at resolving their specific concern.`;
 
     if (kundaliContext) {
       systemInstruction += `\n\nUser Astrological & Numerology Profile:\n- Name: ${kundaliContext.name}\n- Date of Birth: ${kundaliContext.dob}\n- Time of Birth: ${kundaliContext.tob}\n- Place of Birth: ${kundaliContext.pob}\n- Moon Sign (Rashi): ${kundaliContext.rashi}\n- Ascendant (Lagna): ${kundaliContext.lagna}\n- Moolank (Driver Number): ${moolankVal} (Ruled by ${moolankInfo.planet})\n- Bhagyank (Conductor Number): ${bhagyankVal} (Ruled by ${bhagyankInfo.planet})`;

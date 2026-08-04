@@ -19,10 +19,13 @@ import {
   Eye,
   EyeOff,
   UserCheck,
-  AlertTriangle
+  AlertTriangle,
+  Hand,
+  Copy,
+  Smartphone
 } from 'lucide-react';
 import { UserProfile } from '../types';
-import { loginWithGoogleAccount, createNewUser, fetchUserById, fetchUserByIdAsync, verifyUserPin, verifyUserPinAsync, logoutUser } from '../utils/minutesManager';
+import { loginWithGoogleAccount, loginWithGoogleAccountAsync, createNewUser, fetchUserById, fetchUserByIdAsync, verifyUserPin, verifyUserPinAsync, logoutUser } from '../utils/minutesManager';
 import { PrivateProfileModal } from './PrivateProfileModal';
 
 interface NavbarProps {
@@ -101,13 +104,24 @@ export const Navbar: React.FC<NavbarProps> = ({
     };
   }, [newUserIdInput]);
 
-  const handleGoogleSignInSubmit = (e: React.FormEvent) => {
+  const [copiedNavId, setCopiedNavId] = useState(false);
+
+  const handleCopyNavId = (idText: string) => {
+    navigator.clipboard.writeText(idText);
+    setCopiedNavId(true);
+    setTimeout(() => setCopiedNavId(false), 2000);
+  };
+
+  const handleGoogleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!googleEmailInput.trim()) return;
 
-    loginWithGoogleAccount(googleEmailInput.trim(), googleNameInput.trim() || googleEmailInput.split('@')[0]);
+    const loggedUser = await loginWithGoogleAccountAsync(
+      googleEmailInput.trim(),
+      googleNameInput.trim() || googleEmailInput.split('@')[0]
+    );
     onRefreshProfile();
-    setGoogleSuccessMsg(`Successfully signed in with Google! ID: ${userProfile.id}`);
+    setGoogleSuccessMsg(`Successfully signed in with Google! ID: ${loggedUser.id}`);
     setTimeout(() => {
       setShowGoogleModal(false);
       setGoogleSuccessMsg('');
@@ -115,10 +129,10 @@ export const Navbar: React.FC<NavbarProps> = ({
     }, 1200);
   };
 
-  const handleQuickGoogleDemo = (email: string, name: string) => {
-    loginWithGoogleAccount(email, name);
+  const handleQuickGoogleDemo = async (email: string, name: string) => {
+    const loggedUser = await loginWithGoogleAccountAsync(email, name);
     onRefreshProfile();
-    setGoogleSuccessMsg(`Signed in as ${name} (${email})`);
+    setGoogleSuccessMsg(`Signed in as ${name} (${email}) | ID: ${loggedUser.id}`);
     setTimeout(() => {
       setShowGoogleModal(false);
       setGoogleSuccessMsg('');
@@ -215,14 +229,35 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                     {/* Active Profile Info Box */}
                     {userProfile ? (
-                      <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-1">
+                      <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-white text-xs">{userProfile.name}</span>
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-bold">
                             {userProfile.availableMinutes} Mins
                           </span>
                         </div>
-                        <div className="text-[10px] text-gray-400 font-mono">ID: {userProfile.id}</div>
+                        <div className="flex items-center justify-between pt-1 border-t border-white/10">
+                          <span className="text-[10px] text-gray-300 font-mono">User ID: <strong className="text-emerald-300">{userProfile.id}</strong></span>
+                          <button
+                            onClick={() => handleCopyNavId(userProfile.id)}
+                            className="px-2 py-0.5 rounded bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all"
+                            title="Copy User ID for login on other devices"
+                          >
+                            {copiedNavId ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-indigo-300" />}
+                            <span>{copiedNavId ? 'Copied' : 'Copy ID'}</span>
+                          </button>
+                        </div>
+
+                        {/* Multi-Device Login Helper Tip */}
+                        <div className="p-2 rounded-lg bg-indigo-950/60 border border-indigo-500/30 text-[10px] text-indigo-200 space-y-1">
+                          <div className="font-bold text-amber-300 flex items-center gap-1">
+                            <Smartphone className="w-3 h-3 text-amber-400" />
+                            <span>Access on another device:</span>
+                          </div>
+                          <p className="text-gray-300 leading-tight">
+                            Log in on any phone or PC using <strong className="text-white">ID: {userProfile.id}</strong> {userProfile.email ? <>or <strong className="text-white">{userProfile.email}</strong></> : null} with PIN: <strong className="text-amber-300">{userProfile.pin || '1234'}</strong>
+                          </p>
+                        </div>
                       </div>
                     ) : (
                       <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-center">
@@ -343,7 +378,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           </div>
                         ) : newUserIdInput.trim() ? (
                           <div className="p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-[10px] text-indigo-200">
-                            ℹ️ Enter your Security PIN below to log in.
+                            ℹ️ Enter your Security PIN below (Default PIN: <strong className="text-amber-300">1234</strong> if not changed).
                           </div>
                         ) : null}
 
@@ -464,6 +499,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {[
             { id: 'kundali', label: 'Janm Kundali', icon: Compass },
             { id: 'chat', label: 'Guruji AI Chat', icon: MessageSquare, badge: 'Live' },
+            { id: 'palm', label: 'AI Palm Reading (हस्तरेखा)', icon: Hand, badge: 'New' },
             { id: 'numerology', label: 'Moolank & Numerology', icon: Hash },
             { id: 'compatibility', label: 'Gun Milan Match', icon: Heart },
             { id: 'rashifal', label: 'Daily Rashifal & Panchang', icon: Sun },

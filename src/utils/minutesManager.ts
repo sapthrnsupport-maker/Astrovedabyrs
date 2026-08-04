@@ -485,6 +485,8 @@ export async function purchaseMinutesForProfileAsync(
 ): Promise<{ success: boolean; newBalance: number; targetUser?: UserProfile; message?: string }> {
   const cleanId = targetProfileId.trim().toUpperCase() || getActiveUserId();
   const finalPrice = Math.max(0, plan.priceINR - discountAmount);
+  const users = getUsersDb();
+  const existingLocal = users[cleanId] || fetchUserById(cleanId);
 
   try {
     const res = await fetch('/api/users/recharge', {
@@ -496,13 +498,14 @@ export async function purchaseMinutesForProfileAsync(
         amountPaid: finalPrice,
         type: 'SELF_PURCHASE',
         method: paymentMethod,
-        actionType: 'ADD'
+        actionType: 'ADD',
+        userProfile: existingLocal || undefined
       })
     });
     const data = await res.json();
     if (res.ok && data.success && data.user) {
-      const users = getUsersDb();
-      users[cleanId] = data.user;
+      const realId = data.user.id;
+      users[realId] = data.user;
       saveUsersDb(users);
       if (data.tx) addTransactionLog(data.tx);
       return { success: true, newBalance: data.user.availableMinutes, targetUser: data.user };
@@ -697,7 +700,38 @@ export function adminRechargeUser(
   };
 }
 
-// Google Sign-In Integration helper
+// Google Sign-In Integration helper (Async Server + Local Lookup for Cross-Device Support)
+export async function loginWithGoogleAccountAsync(googleEmail: string, googleName: string): Promise<UserProfile> {
+  const users = getUsersDb();
+  const cleanEmail = googleEmail.trim().toLowerCase();
+  
+  // 1. Check local storage
+  const existingLocal = Object.values(users).find(u => u && u.email && u.email.trim().toLowerCase() === cleanEmail);
+  if (existingLocal) {
+    setActiveUserId(existingLocal.id);
+    return existingLocal;
+  }
+
+  // 2. Query cloud server for existing user account with this email
+  try {
+    const res = await fetch(`/api/users/${encodeURIComponent(cleanEmail)}`);
+    if (res.ok) {
+      const serverUser = await res.json();
+      if (serverUser && serverUser.id) {
+        users[serverUser.id] = serverUser;
+        saveUsersDb(users);
+        setActiveUserId(serverUser.id);
+        return serverUser;
+      }
+    }
+  } catch (e) {
+    console.error('Error querying Google user on server:', e);
+  }
+
+  // 3. Fallback to creating a new user profile
+  return loginWithGoogleAccount(googleEmail, googleName);
+}
+
 export function loginWithGoogleAccount(googleEmail: string, googleName: string): UserProfile {
   const users = getUsersDb();
   
