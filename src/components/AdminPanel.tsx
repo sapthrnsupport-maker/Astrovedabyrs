@@ -221,13 +221,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
     return true;
   });
 
-  // Auto-sync users from server when authorized
-  React.useEffect(() => {
-    if (isAuthorized) {
-      syncAllUsersFromServer().then(() => onRefreshProfile());
-    }
-  }, [isAuthorized]);
-
   const handleGrantSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetId.trim() || addMinsInput <= 0) return;

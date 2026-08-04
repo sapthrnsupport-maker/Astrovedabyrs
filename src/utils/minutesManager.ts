@@ -344,18 +344,27 @@ export async function verifyUserPinAsync(
         message: `Logged in successfully as ${data.user.name} (${data.user.id})!`,
         user: data.user
       };
-    } else {
-      return {
-        success: false,
-        message: data.error || 'Incorrect User ID / Email or Security PIN!'
-      };
     }
   } catch (e) {
     console.error('Server login error, using local check:', e);
   }
 
-  // Fallback to local
-  return verifyUserPin(query, pinInput);
+  // Fallback to local check if server check fails or account was saved locally
+  const localRes = verifyUserPin(query, pinInput);
+  if (localRes.success && localRes.user) {
+    // Sync local user to server
+    fetch('/api/users/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(localRes.user)
+    }).catch(err => console.error('Error syncing local user to server:', err));
+    return localRes;
+  }
+
+  return {
+    success: false,
+    message: localRes.message || 'Incorrect User ID / Email or Security PIN!'
+  };
 }
 
 export function verifyUserPin(userId: string, pinInput: string): { success: boolean; message: string; user?: UserProfile } {

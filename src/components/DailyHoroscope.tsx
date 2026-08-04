@@ -70,7 +70,7 @@ export const DailyHoroscope: React.FC<DailyHoroscopeProps> = ({
 - **Love & Relationships (88% Favorable):** Venus position brings harmony and sweet conversations. If you are single, an unexpected conversation may bring romantic excitement.
 - **Career & Business (91% High Growth):** Moon transit in 10th house creates strong focus. Important meetings held between 11:30 AM and 1:00 PM will yield high profits.
 - **Wealth & Finance (82% Stability):** Financial gains from past investments are indicated. Keep away from speculative bets during Rahu Kalam (${panchang.rahuKalam}).
-- **Lucky Color:** Yellow / White • **Lucky Number:** ${(selectedRashi.id * 3) % 9 + 1}
+- **Lucky Color:** Yellow / White • **Lucky Number:** ${(ZODIAC_SIGNS.findIndex(z => z.english === selectedRashi.english) * 3 + 1) % 9 + 1}
 - **Vedic Remedy:** Offer water to Surya Dev in the morning and chant "Om Namah Shivaya" 21 times for mental clarity.`;
       }
 

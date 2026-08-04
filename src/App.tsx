@@ -21,6 +21,8 @@ import { NumerologyView } from './components/NumerologyView';
 import { CompatibilityView } from './components/CompatibilityView';
 import { DailyHoroscope } from './components/DailyHoroscope';
 import { AdminPanel } from './components/AdminPanel';
+import { GurujiFrontShowcase } from './components/GurujiFrontShowcase';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Sparkles, Heart, AlertTriangle, Zap, Clock, LogIn, UserPlus } from 'lucide-react';
 
 export default function App() {
@@ -201,55 +203,64 @@ export default function App() {
             exit={{ opacity: 0, y: -12, scale: 0.99 }}
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           >
-            {activeTab === 'kundali' && (
-              <KundaliView
-                userProfile={currentProfile}
-                onUpdateProfile={handleUpdateProfile}
-                availableMinutes={currentProfile.availableMinutes}
-                onDeductMinute={handleDeductMinute}
-                onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
-              />
-            )}
+            <ErrorBoundary key={activeTab}>
+              {activeTab === 'kundali' && (
+                <div className="space-y-8">
+                  <GurujiFrontShowcase
+                    onStartChat={() => setActiveTab('chat')}
+                    availableMinutes={currentProfile.availableMinutes}
+                    onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
+                  />
+                  <KundaliView
+                    userProfile={currentProfile}
+                    onUpdateProfile={handleUpdateProfile}
+                    availableMinutes={currentProfile.availableMinutes}
+                    onDeductMinute={handleDeductMinute}
+                    onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
+                  />
+                </div>
+              )}
 
-            {activeTab === 'chat' && (
-              <AiAstrologerChat
-                userProfile={currentProfile}
-                availableMinutes={currentProfile.availableMinutes}
-                onDeductMinute={handleDeductMinute}
-                onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
-                isConsultationActive={isConsultationActive}
-                setIsConsultationActive={setIsConsultationActive}
-              />
-            )}
+              {activeTab === 'chat' && (
+                <AiAstrologerChat
+                  userProfile={currentProfile}
+                  availableMinutes={currentProfile.availableMinutes}
+                  onDeductMinute={handleDeductMinute}
+                  onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
+                  isConsultationActive={isConsultationActive}
+                  setIsConsultationActive={setIsConsultationActive}
+                />
+              )}
 
-            {activeTab === 'numerology' && (
-              <NumerologyView
-                userProfile={currentProfile}
-                availableMinutes={currentProfile.availableMinutes}
-                onDeductMinute={handleDeductMinute}
-                onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
-                onUpdateProfile={handleUpdateProfile}
-              />
-            )}
+              {activeTab === 'numerology' && (
+                <NumerologyView
+                  userProfile={currentProfile}
+                  availableMinutes={currentProfile.availableMinutes}
+                  onDeductMinute={handleDeductMinute}
+                  onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
+                  onUpdateProfile={handleUpdateProfile}
+                />
+              )}
 
-            {activeTab === 'compatibility' && (
-              <CompatibilityView
-                userProfile={currentProfile}
-                availableMinutes={currentProfile.availableMinutes}
-                onDeductMinute={handleDeductMinute}
-                onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
-              />
-            )}
+              {activeTab === 'compatibility' && (
+                <CompatibilityView
+                  userProfile={currentProfile}
+                  availableMinutes={currentProfile.availableMinutes}
+                  onDeductMinute={handleDeductMinute}
+                  onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
+                />
+              )}
 
-            {activeTab === 'rashifal' && (
-              <DailyHoroscope
-                availableMinutes={currentProfile.availableMinutes}
-                onDeductMinute={handleDeductMinute}
-                onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
-              />
-            )}
+              {activeTab === 'rashifal' && (
+                <DailyHoroscope
+                  availableMinutes={currentProfile.availableMinutes}
+                  onDeductMinute={handleDeductMinute}
+                  onOpenRechargeModal={() => handleOpenRechargeModal('USER_BUY')}
+                />
+              )}
 
-            {activeTab === 'admin' && <AdminPanel onRefreshProfile={handleRefreshProfile} />}
+              {activeTab === 'admin' && <AdminPanel onRefreshProfile={handleRefreshProfile} />}
+            </ErrorBoundary>
           </motion.div>
         </AnimatePresence>
       </main>
