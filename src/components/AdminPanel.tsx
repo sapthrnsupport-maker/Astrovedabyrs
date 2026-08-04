@@ -134,6 +134,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
     setInputPasscode('');
   };
 
+  // Auto-sync users from server when authorized
+  React.useEffect(() => {
+    if (isAuthorized) {
+      syncAllUsersFromServer().then(() => onRefreshProfile());
+    }
+  }, [isAuthorized]);
+
   // Render Lock Screen if not authorized
   if (!isAuthorized) {
     return (
@@ -189,26 +196,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
     );
   }
 
-  const usersDb = getUsersDb();
-  const allUsers = Object.values(usersDb);
-  const txLogs = getTransactionLogs();
+  const usersDb = getUsersDb() || {};
+  const allUsers = Object.values(usersDb).filter((u): u is UserProfile => Boolean(u && u.id));
+  const txLogs = (getTransactionLogs() || []).filter(Boolean);
 
   // Stats calculation
   const totalUsersCount = allUsers.length;
-  const totalMinutesRemaining = allUsers.reduce((sum, u) => sum + (u.availableMinutes || 0), 0);
-  const googleUsersCount = allUsers.filter((u) => u.id.startsWith('G-')).length;
+  const totalMinutesRemaining = allUsers.reduce((sum, u) => sum + (Number(u.availableMinutes) || 0), 0);
+  const googleUsersCount = allUsers.filter((u) => u.id && String(u.id).startsWith('G-')).length;
   const customUsersCount = totalUsersCount - googleUsersCount;
 
   // Filtered Users List
   const filteredUsers = allUsers.filter((u) => {
-    const matchesQuery =
-      u.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.name.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!u || !u.id) return false;
+    const uId = String(u.id).toLowerCase();
+    const uName = String(u.name || '').toLowerCase();
+    const q = searchQuery.toLowerCase();
+    const matchesQuery = uId.includes(q) || uName.includes(q);
 
     if (!matchesQuery) return false;
 
-    if (filterType === 'GOOGLE') return u.id.startsWith('G-');
-    if (filterType === 'CUSTOM') return !u.id.startsWith('G-');
+    if (filterType === 'GOOGLE') return String(u.id).startsWith('G-');
+    if (filterType === 'CUSTOM') return !String(u.id).startsWith('G-');
     return true;
   });
 
@@ -652,7 +661,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
                 </div>
               ) : (
                 filteredUsers.map((user) => {
-                  const isGoogle = user.id.startsWith('G-');
+                  const isGoogle = String(user.id || '').startsWith('G-');
                   return (
                     <div
                       key={user.id}

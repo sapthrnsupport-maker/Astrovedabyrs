@@ -153,32 +153,46 @@ app.post("/api/users/sync", (req, res) => {
 // Flexible user lookup helper across server DB
 function findUserInServerDb(query: string): any | null {
   if (!query || !query.trim()) return null;
-  const cleanUpper = query.trim().toUpperCase();
-  const cleanLower = query.trim().toLowerCase();
+  const cleanTrim = query.trim();
+  const cleanUpper = cleanTrim.toUpperCase();
+  const cleanLower = cleanTrim.toLowerCase();
+  const digitsOnly = cleanTrim.replace(/\D/g, '');
 
-  // 1. Direct key or user.id match
-  for (const [key, user] of Object.entries(serverDb.users)) {
-    if (!user) continue;
-    if (key.trim().toUpperCase() === cleanUpper) return user;
+  const allUsers = Object.values(serverDb.users).filter(Boolean);
+
+  // 1. Direct key or user.id exact match
+  for (const user of allUsers) {
     if (user.id && String(user.id).trim().toUpperCase() === cleanUpper) return user;
   }
+  for (const [key, user] of Object.entries(serverDb.users)) {
+    if (String(key).trim().toUpperCase() === cleanUpper) return user;
+  }
 
-  // 2. Email match
-  for (const user of Object.values(serverDb.users)) {
-    if (!user) continue;
+  // 2. Numeric ID match (e.g. "880101" vs "USER-880101" or numeric string)
+  if (digitsOnly.length >= 4) {
+    for (const user of allUsers) {
+      if (user.id && String(user.id).replace(/\D/g, '') === digitsOnly) return user;
+    }
+  }
+
+  // 3. Email match (exact case-insensitive)
+  for (const user of allUsers) {
     if (user.email && String(user.email).trim().toLowerCase() === cleanLower) return user;
   }
 
-  // 3. Phone / Mobile match
-  for (const user of Object.values(serverDb.users)) {
-    if (!user) continue;
-    if (user.phone && String(user.phone).trim() === query.trim()) return user;
+  // 4. Phone / Mobile match
+  for (const user of allUsers) {
+    if (user.phone && String(user.phone).trim() === cleanTrim) return user;
   }
 
-  // 4. Name match (case-insensitive)
-  for (const user of Object.values(serverDb.users)) {
-    if (!user) continue;
+  // 5. Name match (exact case-insensitive)
+  for (const user of allUsers) {
     if (user.name && String(user.name).trim().toLowerCase() === cleanLower) return user;
+  }
+
+  // 6. Name partial / includes match
+  for (const user of allUsers) {
+    if (user.name && String(user.name).trim().toLowerCase().includes(cleanLower)) return user;
   }
 
   return null;
@@ -210,8 +224,10 @@ app.post("/api/users/login", (req, res) => {
     });
   }
 
-  const userPin = user.pin || '1234';
-  if ((pin || "").trim() !== userPin.trim()) {
+  const userPin = String(user.pin || '1234').trim();
+  const inputPin = String(pin || '').trim();
+
+  if (inputPin !== userPin) {
     return res.status(401).json({ error: `Incorrect Security PIN / Password! Please enter the correct PIN for ${user.name} (${user.id}).` });
   }
 

@@ -6,7 +6,7 @@ import { changeUserPin } from '../utils/minutesManager';
 interface PrivateProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  userProfile: UserProfile;
+  userProfile: UserProfile | null;
   onRefreshProfile: () => void;
 }
 
@@ -26,7 +26,7 @@ export const PrivateProfileModal: React.FC<PrivateProfileModalProps> = ({
   const [successMsg, setSuccessMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (!isOpen) return null;
+  if (!isOpen || !userProfile) return null;
 
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();

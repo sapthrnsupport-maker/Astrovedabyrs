@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, ShieldCheck, Key, Lock, User, Calendar, Clock, MapPin, Eye, EyeOff, AlertCircle, ArrowRight, UserPlus, LogIn, Mail, CheckCircle2 } from 'lucide-react';
+import { Sparkles, ShieldCheck, Key, Lock, User, Calendar, Clock, MapPin, Eye, EyeOff, AlertCircle, ArrowRight, UserPlus, LogIn, Mail, CheckCircle2, Copy, Check } from 'lucide-react';
 import { verifyUserPinAsync, createNewUserAsync } from '../utils/minutesManager';
 import { UserProfile } from '../types';
 
@@ -24,6 +24,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Register Form State
+  const [regCustomId, setRegCustomId] = useState(() => Math.floor(100000 + Math.random() * 900000).toString());
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regDob, setRegDob] = useState('1998-05-15');
@@ -35,14 +36,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [regError, setRegError] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [createdUserCard, setCreatedUserCard] = useState<UserProfile | null>(null);
+  const [copiedId, setCopiedId] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleCopyId = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(true);
+    setTimeout(() => setCopiedId(false), 2000);
+  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
     if (!loginUserId.trim()) {
-      setLoginError('Please enter your User ID or registered Email.');
+      setLoginError('Please enter your User ID, Email, or Name.');
       return;
     }
     if (!loginPin.trim()) {
@@ -77,6 +85,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setIsRegistering(true);
     const res = await createNewUserAsync({
+      id: regCustomId.trim() || Math.floor(100000 + Math.random() * 900000).toString(),
       name: regName.trim(),
       email: regEmail.trim(),
       dob: regDob,
@@ -84,7 +93,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       pob: regPob,
       gender: regGender,
       pin: regPin.trim(),
-      initialMinutes: 2 // Welcome 2 minutes bonus for new unique users
+      initialMinutes: 15 // Welcome 15 consultation minutes bonus
     });
     setIsRegistering(false);
 
@@ -105,32 +114,48 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Created Account Success Modal Overlay */}
         {createdUserCard ? (
-          <div className="py-4 text-center space-y-4 animate-fadeIn">
+          <div className="py-2 text-center space-y-4 animate-fadeIn">
             <div className="w-14 h-14 mx-auto rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
               <CheckCircle2 className="w-8 h-8" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-white">Account Created Successfully!</h3>
+              <h3 className="text-xl font-bold text-white">Account Created & Synced to Cloud!</h3>
               <p className="text-xs text-indigo-200/80 mt-1">
-                Your account is saved on the server database. Use these credentials to log in on any device!
+                Save these credentials to sign in seamlessly on any phone, laptop, or browser!
               </p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white/5 border border-indigo-500/30 text-left space-y-2 font-mono">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-400">User ID:</span>
-                <span className="text-emerald-300 font-bold text-base">{createdUserCard.id}</span>
+            <div className="p-4 rounded-2xl bg-white/5 border border-indigo-500/30 text-left space-y-3 font-mono">
+              <div className="flex justify-between items-center bg-indigo-500/10 p-2.5 rounded-xl border border-indigo-500/20">
+                <div>
+                  <div className="text-[10px] text-indigo-300 font-sans uppercase">Your Unique User ID</div>
+                  <div className="text-emerald-300 font-bold text-lg">{createdUserCard.id}</div>
+                </div>
+                <button
+                  onClick={() => handleCopyId(createdUserCard.id)}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-sans text-xs flex items-center gap-1 cursor-pointer transition-all"
+                >
+                  {copiedId ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedId ? 'Copied!' : 'Copy ID'}</span>
+                </button>
               </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-400">Security PIN:</span>
-                <span className="text-amber-300 font-bold text-base">{createdUserCard.pin}</span>
+
+              <div className="flex justify-between items-center text-xs px-1">
+                <span className="text-gray-400 font-sans">Security PIN:</span>
+                <span className="text-amber-300 font-bold text-sm">{createdUserCard.pin}</span>
               </div>
+
               {createdUserCard.email && (
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-400">Registered Email:</span>
-                  <span className="text-indigo-300">{createdUserCard.email}</span>
+                <div className="flex justify-between items-center text-xs px-1">
+                  <span className="text-gray-400 font-sans">Registered Email:</span>
+                  <span className="text-indigo-300 text-xs">{createdUserCard.email}</span>
                 </div>
               )}
+
+              <div className="flex justify-between items-center text-xs px-1 pt-1 border-t border-white/10">
+                <span className="text-gray-400 font-sans">Welcome Bonus:</span>
+                <span className="text-emerald-400 font-bold font-sans">15 Consultation Minutes</span>
+              </div>
             </div>
 
             <button
@@ -138,9 +163,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 setCreatedUserCard(null);
                 if (onClose) onClose();
               }}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-indigo-600 hover:brightness-110 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 cursor-pointer"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-indigo-600 hover:brightness-110 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 cursor-pointer transition-all"
             >
-              Continue to App
+              Continue to AstroVeda App
             </button>
           </div>
         ) : (
@@ -154,7 +179,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
               <h2 className="font-serif font-bold text-xl sm:text-2xl text-white">AstroVeda Account Access</h2>
               <p className="text-xs text-indigo-200/80 mt-1">
-                {mode === 'LOGIN' ? 'Sign in from any device using User ID or Email' : 'Create your Kundali profile'}
+                {mode === 'LOGIN' ? 'Sign in from any device using User ID or Email' : 'Create your Kundali profile & get 15 Free Minutes'}
               </p>
             </div>
 
@@ -198,14 +223,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 )}
 
                 <div>
-                  <label className="block text-[11px] font-medium text-indigo-200 mb-1">User ID or Registered Email</label>
+                  <label className="block text-[11px] font-medium text-indigo-200 mb-1">User ID, Registered Email, or Full Name</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
                     <input
                       type="text"
                       value={loginUserId}
                       onChange={(e) => setLoginUserId(e.target.value)}
-                      placeholder="Enter 6-digit User ID (e.g. 880101) or Email"
+                      placeholder="e.g. 880101, rahul@gmail.com, or Rahul Sharma"
                       className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/5 border border-white/10 focus:border-indigo-400 text-white placeholder-gray-500 text-xs outline-none transition-all font-mono"
                       required
                     />
@@ -220,7 +245,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type={showLoginPin ? 'text' : 'password'}
                       value={loginPin}
                       onChange={(e) => setLoginPin(e.target.value)}
-                      placeholder="Enter Security PIN"
+                      placeholder="Enter Security PIN (e.g. 1234)"
                       className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-white/5 border border-white/10 focus:border-indigo-400 text-white placeholder-gray-500 text-xs outline-none transition-all"
                       required
                     />
@@ -239,7 +264,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   disabled={isLoggingIn}
                   className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:brightness-110 text-white font-bold text-xs shadow-lg shadow-purple-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
                 >
-                  <span>{isLoggingIn ? 'Checking Database...' : 'Sign In Now'}</span>
+                  <span>{isLoggingIn ? 'Checking Cloud Database...' : 'Sign In Now'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
@@ -255,8 +280,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </div>
                 )}
 
+                {/* 6-Digit User ID Preview */}
+                <div className="p-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex justify-between items-center text-xs">
+                  <div className="flex items-center gap-1.5 text-indigo-200">
+                    <Key className="w-4 h-4 text-indigo-400" />
+                    <span>Assigned User ID:</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={regCustomId}
+                    onChange={(e) => setRegCustomId(e.target.value)}
+                    className="w-28 px-2 py-1 bg-black/40 border border-indigo-400/40 rounded-lg text-emerald-300 font-mono font-bold text-center text-xs outline-none focus:border-indigo-400"
+                    title="Your auto-generated unique User ID"
+                    required
+                  />
+                </div>
+
                 <div>
-                  <label className="block text-[11px] font-medium text-indigo-200 mb-1">Full Name</label>
+                  <label className="block text-[11px] font-medium text-indigo-200 mb-1">Full Name *</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
                     <input
@@ -271,14 +312,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-indigo-200 mb-1">Email Address (Optional - For Easy Multi-Device Login)</label>
+                  <label className="block text-[11px] font-medium text-indigo-200 mb-1">Email Address (Recommended for easy multi-device sign in)</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
                     <input
                       type="email"
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
-                      placeholder="yourname@gmail.com"
+                      placeholder="ananya@gmail.com"
                       className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/5 border border-white/10 focus:border-indigo-400 text-white placeholder-gray-500 text-xs outline-none transition-all"
                     />
                   </div>
@@ -337,7 +378,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type={showRegPin ? 'text' : 'password'}
                       value={regPin}
                       onChange={(e) => setRegPin(e.target.value)}
-                      placeholder="Choose 4-digit PIN"
+                      placeholder="Choose 4-digit PIN (default 1234)"
                       className="w-full pl-9 pr-10 py-2 rounded-xl bg-white/5 border border-white/10 focus:border-indigo-400 text-white placeholder-gray-500 text-xs outline-none"
                       required
                     />
@@ -356,7 +397,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   disabled={isRegistering}
                   className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:brightness-110 text-white font-bold text-xs shadow-lg shadow-purple-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
                 >
-                  <span>{isRegistering ? 'Creating Account...' : 'Create My Account'}</span>
+                  <span>{isRegistering ? 'Creating Account & Syncing Cloud...' : 'Create Account + Get 15 Mins Free'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
