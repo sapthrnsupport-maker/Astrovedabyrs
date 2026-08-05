@@ -236,11 +236,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
     setInputPasscode('');
   };
 
-  // Auto-sync users from server when authorized
+  // Auto-sync users from server continuously when authorized so newly registered IDs from other devices appear live
   React.useEffect(() => {
-    if (isAuthorized) {
-      syncAllUsersFromServer().then(() => onRefreshProfile());
-    }
+    if (!isAuthorized) return;
+
+    syncAllUsersFromServer().then(() => {
+      onRefreshProfile();
+      setRefreshCounter(prev => prev + 1);
+    });
+
+    const timer = setInterval(() => {
+      syncAllUsersFromServer().then(() => {
+        onRefreshProfile();
+        setRefreshCounter(prev => prev + 1);
+      });
+    }, 4000);
+
+    return () => clearInterval(timer);
   }, [isAuthorized]);
 
   // Render Lock Screen if not authorized

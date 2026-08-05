@@ -34,11 +34,21 @@ export default function App() {
   const [isConsultationActive, setIsConsultationActive] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  // Sync users with server on mount
+  // Real-time automatic background synchronization across all devices
   useEffect(() => {
+    // Initial sync on app load
     syncAllUsersFromServer().then(() => {
       setUserProfile(getActiveUserProfile());
     });
+
+    // Background interval to pull accounts created/recharged on other devices
+    const syncInterval = setInterval(() => {
+      syncAllUsersFromServer().then(() => {
+        setUserProfile(getActiveUserProfile());
+      });
+    }, 5000);
+
+    return () => clearInterval(syncInterval);
   }, []);
 
   // Refresh active user profile

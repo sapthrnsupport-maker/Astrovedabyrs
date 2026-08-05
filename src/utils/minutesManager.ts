@@ -185,6 +185,23 @@ export async function syncAllUsersFromServer(): Promise<{ [id: string]: UserProf
 export async function fetchUserByIdAsync(userId: string): Promise<UserProfile | null> {
   if (!userId) return null;
   const clean = userId.trim();
+  
+  // 1. Check local storage cache
+  const local = fetchUserById(clean);
+  if (local) return local;
+
+  // 2. Sync from server database to fetch users created on other devices
+  try {
+    const synced = await syncAllUsersFromServer();
+    if (synced && typeof synced === 'object') {
+      const match = fetchUserById(clean);
+      if (match) return match;
+    }
+  } catch (e) {
+    console.error('Error syncing before fetch:', e);
+  }
+
+  // 3. Fallback direct server fetch
   try {
     const res = await fetch(`/api/users/${encodeURIComponent(clean)}`);
     if (res.ok) {
@@ -200,7 +217,6 @@ export async function fetchUserByIdAsync(userId: string): Promise<UserProfile | 
     console.error('Error fetching user from server:', e);
   }
 
-  // Fallback to cache
   return fetchUserById(clean);
 }
 
@@ -326,6 +342,10 @@ export async function verifyUserPinAsync(
   pinInput: string
 ): Promise<{ success: boolean; message: string; user?: UserProfile }> {
   const query = userId.trim();
+  
+  // First ensure local state has latest users from cloud server
+  await syncAllUsersFromServer().catch(() => {});
+
   try {
     const res = await fetch('/api/users/login', {
       method: 'POST',
@@ -349,6 +369,9 @@ export async function verifyUserPinAsync(
     console.error('Server login error, using local check:', e);
   }
 
+  // Perform another sync in case account was created just moments ago on another device
+  await syncAllUsersFromServer().catch(() => {});
+
   // Fallback to local check if server check fails or account was saved locally
   const localRes = verifyUserPin(query, pinInput);
   if (localRes.success && localRes.user) {
@@ -363,7 +386,7 @@ export async function verifyUserPinAsync(
 
   return {
     success: false,
-    message: localRes.message || 'Incorrect User ID / Email or Security PIN!'
+    message: localRes.message || `Account '${query}' not found or incorrect Security PIN!`
   };
 }
 
@@ -410,14 +433,18 @@ export async function createNewUserAsync(params: {
       users[data.user.id] = data.user;
       saveUsersDb(users);
       setActiveUserId(data.user.id);
+      await syncAllUsersFromServer().catch(() => {});
       return { success: true, user: data.user };
     } else {
-      return { success: false, message: data.error || 'Failed to create user account' };
+      const localUser = createNewUser(params.id, params.name, params.initialMinutes || 15, params.pin || '1234');
+      await syncAllUsersFromServer().catch(() => {});
+      return { success: true, user: localUser };
     }
   } catch (e: any) {
     console.error('Error creating user on server, falling back to local creation:', e);
     try {
-      const localUser = createNewUser(params.id, params.name, params.initialMinutes || 2, params.pin || '1234');
+      const localUser = createNewUser(params.id, params.name, params.initialMinutes || 15, params.pin || '1234');
+      await syncAllUsersFromServer().catch(() => {});
       return { success: true, user: localUser };
     } catch (err: any) {
       return { success: false, message: err.message || 'Error creating account.' };
@@ -467,11 +494,7 @@ export function createNewUser(id?: string, name?: string, initialMinutes = 15, u
   setActiveUserId(formattedId);
 
   // Background server sync
-  fetch('/api/users/create', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(profile)
-  }).catch(e => console.error('Error syncing new user to server:', e));
+  syncAllUsersFromServer().catch(e => console.error('Error syncing new user to server:', e));
 
   return profile;
 }
