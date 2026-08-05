@@ -138,6 +138,7 @@ export const AiAstrologerChat: React.FC<AiAstrologerChatProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('all');
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [showPresets, setShowPresets] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   const filteredPresets = FEATURED_PRESETS.filter(
@@ -431,43 +432,76 @@ export const AiAstrologerChat: React.FC<AiAstrologerChatProps> = ({
             <div ref={chatBottomRef} />
           </div>
 
-          {/* Preset Category Bar */}
-          <div className="px-3 py-2 bg-black/60 border-t border-indigo-500/20 flex items-center gap-1.5 overflow-x-auto scrollbar-none text-xs">
-            {Object.entries(PRESET_CATEGORIES).map(([catKey, catInfo]) => (
-              <button
-                key={catKey}
-                onClick={() => setActiveCategoryFilter(catKey)}
-                className={`px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-                  activeCategoryFilter === catKey
-                    ? 'bg-gradient-to-r from-amber-500 via-orange-600 to-purple-600 text-white shadow-lg border border-amber-300/40'
-                    : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
-                }`}
-              >
-                <span>{catInfo.icon}</span>
-                <span>{catInfo.label}</span>
-              </button>
-            ))}
+          {/* Collapsible Suggested Questions Bar Toggle */}
+          <div className="px-3 py-1.5 bg-black/80 border-t border-indigo-500/20 flex items-center justify-between text-xs shrink-0 z-20">
+            <button
+              onClick={() => setShowPresets(!showPresets)}
+              className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-300 hover:text-amber-200 cursor-pointer px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 transition-all"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>{showPresets ? 'Hide Suggested Questions' : '💡 Show Suggested Questions (Fast Ask)'}</span>
+              <span className="text-[9px] bg-amber-500/20 px-1.5 py-0.5 rounded-full font-bold ml-1">
+                {showPresets ? '▲' : '▼'}
+              </span>
+            </button>
+            <span className="text-[10px] text-indigo-300/60 hidden sm:inline">
+              Ask any custom astrological question below
+            </span>
           </div>
 
-          {/* Featured Presets Grid */}
-          <div className="px-3 py-2.5 bg-slate-950/90 border-t border-indigo-500/20 max-h-32 overflow-y-auto scrollbar-thin">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {filteredPresets.map((item, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleSendMessage(item.prompt)}
-                  disabled={isLoading}
-                  className="p-2 rounded-xl bg-white/5 hover:bg-indigo-500/10 border border-white/10 hover:border-amber-400/40 text-left text-xs text-gray-200 transition-all cursor-pointer flex items-center justify-between group disabled:opacity-50"
-                >
-                  <span className="font-medium truncate">{item.label}</span>
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400 opacity-60 group-hover:opacity-100 shrink-0" />
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Preset Category Bar & Featured Presets (Collapsible) */}
+          <AnimatePresence>
+            {showPresets && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="bg-slate-950/95 border-t border-indigo-500/20 z-20 overflow-hidden shrink-0"
+              >
+                {/* Category Filter Pills */}
+                <div className="px-3 py-2 bg-black/60 border-b border-indigo-500/20 flex items-center gap-1.5 overflow-x-auto scrollbar-none text-xs">
+                  {Object.entries(PRESET_CATEGORIES).map(([catKey, catInfo]) => (
+                    <button
+                      key={catKey}
+                      onClick={() => setActiveCategoryFilter(catKey)}
+                      className={`px-3 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                        activeCategoryFilter === catKey
+                          ? 'bg-gradient-to-r from-amber-500 via-orange-600 to-purple-600 text-white shadow-lg border border-amber-300/40'
+                          : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                      }`}
+                    >
+                      <span>{catInfo.icon}</span>
+                      <span>{catInfo.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Preset List Grid */}
+                <div className="px-3 py-2.5 max-h-36 overflow-y-auto scrollbar-thin">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {filteredPresets.map((item, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setShowPresets(false);
+                          handleSendMessage(item.prompt);
+                        }}
+                        disabled={isLoading}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-indigo-500/10 border border-white/10 hover:border-amber-400/40 text-left text-xs text-gray-200 transition-all cursor-pointer flex items-center justify-between group disabled:opacity-50"
+                      >
+                        <span className="font-medium truncate">{item.label}</span>
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400 opacity-60 group-hover:opacity-100 shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Chat Input Bar */}
-          <div className="p-3 bg-black/80 border-t border-indigo-500/20">
+          <div className="p-3 bg-black/80 border-t border-indigo-500/20 shrink-0 z-20">
             <form
               onSubmit={(e) => {
                 e.preventDefault();

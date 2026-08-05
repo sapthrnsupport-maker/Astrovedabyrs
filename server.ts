@@ -542,6 +542,8 @@ function generateFallbackChatReply(userPrompt: string, kundaliContext: any): str
   const moolankInfo = NUMEROLOGY_PLANETS[moolank] || NUMEROLOGY_PLANETS[1];
   const bhagyankInfo = NUMEROLOGY_PLANETS[bhagyank] || NUMEROLOGY_PLANETS[1];
 
+  const wantsRemedy = /upay|remedy|gemstone|totka|solution|mantra|daan|pooja|kaise theek|kya kare/i.test(lower);
+
   let hash = 0;
   const str = (name || "Jatak") + (userPrompt || "Kundali");
   for (let i = 0; i < str.length; i++) {
@@ -549,276 +551,167 @@ function generateFallbackChatReply(userPrompt: string, kundaliContext: any): str
     hash |= 0;
   }
   const seed = Math.abs(hash);
-  const p1 = Math.min(98, Math.max(68, 75 + (seed % 23)));
-  const p2 = Math.min(97, Math.max(62, 70 + ((seed * 7) % 26)));
+  const p1 = Math.min(98, Math.max(65, 72 + (seed % 24)));
+  const p2 = Math.min(96, Math.max(60, 68 + ((seed * 7) % 27)));
 
-  // Exams & Studies
-  if (
-    lower.includes("exam") ||
-    lower.includes("clear") ||
-    lower.includes("pass") ||
-    lower.includes("result") ||
-    lower.includes("upsc") ||
-    lower.includes("ssc") ||
-    lower.includes("jee") ||
-    lower.includes("neet") ||
-    lower.includes("bank") ||
-    lower.includes("study") ||
-    lower.includes("padhai") ||
-    lower.includes("test") ||
-    lower.includes("rank") ||
-    lower.includes("college")
-  ) {
-    return `Pranam ${name}! 📚✨
+  // 1. EXAMS & STUDIES
+  if (/exam|clear|pass|result|upsc|ssc|jee|neet|bank|study|padhai|test|rank|college/i.test(lower)) {
+    let reply = `Pranam ${name}! 📚✨
 
-**🎯 Competitive Exam & Academic Success Prediction:**
-- **Exam Clearing & Rank Selection Chance:** **${p1}% High Success Chance!**
-- **Mental Focus & Retention Index:** **${p2}% Memory Strength**
-- **Moolank (${moolank}) & Bhagyank (${bhagyank}) Harmony:** Driver Number ${moolank} (${moolankInfo.planet}) gives sharp retention, while Conductor Number ${bhagyank} (${bhagyankInfo.planet}) supports exam success in current transit.
+Aapke exam aur padhai ke sawal ke liye aapki Janm Kundali (${rashi} Rashi, ${lagna} Lagna) aur Numerology (Moolank ${moolank}, Bhagyank ${bhagyank}) ka gahan vishleshana:
 
-**Guruji's Astrological Guidance:**
-Aapke Moolank ${moolank} aur 5th House lord ki transit position kaafi favorable hai. Agle 3-6 mahine me focus banaye rakhein — competitive exams, interview, ya selection me **positive result** milne ke ${p1}% strong chances hain!
+• **5th House (Vidya & Buddhi Sthan) & Budh Grah Alignment:**
+  Moolank ${moolank} (${moolankInfo.planet}) aapke retention aur focus ko drive karta hai. Present transit me 5th House lord aur Mercury (Budh) ki position favorable timing darsha rahi hai.
 
-**Auspicious Study Timing:**
-Brahma Muhurat (4:30 AM to 6:00 AM) or Budh Hora during Morning hours.
+• **Success Chance & Focus Index:**
+  Current planetary period ke hisab se competitive exams aur selection me **${p1}% High Probability** ban rahi hai. Memory focus index **${p2}%** hai.
 
-**Vedic Upay (Remedy for Academic Victory):**
-1. Chant **'Om Budhaya Namah'** or **Saraswati Vandana** 21 times before studying.
-2. Offer green grass (Durva) to Lord Ganesha on Wednesdays.
-3. Keep a small piece of camphor (Kapoor) on your study desk for sharp focus.`;
+• **Guruji's Direct Advice:**
+  Agle 3 se 6 mahine aapke liye kaafi crucial hain. Subah Brahma Muhurat (4:30 AM to 6:30 AM) me padhai karne par aapki concentration doubled ho jayegi.`;
+
+    if (wantsRemedy) {
+      reply += `\n\n**Vedic Upay (Specific for Academic Success - Mercury/Saraswati Alignment):**
+1. Wednesdays ko 21 baar **'Om Budhaya Namah'** ka jaap karein ya Saraswati Vandana karein.
+2. Study table par Kapoor (Camphor) rakhein aur Lord Ganesha ko Durva offer karein.`;
+    }
+    return reply;
   }
 
-  // Crush & Proposal
-  if (
-    lower.includes("crush") ||
-    lower.includes("love") ||
-    lower.includes("propose") ||
-    lower.includes("manegi") ||
-    lower.includes("manega") ||
-    lower.includes("feelings") ||
-    lower.includes("attraction") ||
-    lower.includes("proposal") ||
-    lower.includes("pyaar") ||
-    lower.includes("dil")
-  ) {
-    return `Pranam ${name}! 💕
+  // 2. CRUSH & PROPOSAL
+  if (/crush|love|propose|manegi|manega|feelings|attraction|proposal|pyaar|dil/i.test(lower)) {
+    let reply = `Pranam ${name}! 💕
 
-**💘 Crush & Proposal Acceptance Prediction:**
-- **Proposal Acceptance Success:** **${p1}% High Probability!**
-- **Mutual Attraction Chemistry:** **${p2}% Emotional Magnetism**
-- **Moolank (${moolank}) Romance Aura:** Moolank ${moolank} (${moolankInfo.planet}) aligns directly with Venus in your 5th House of Romance for ${rashi} Rashi.
+Crush aur proposal acceptance ke baare me aapki Kundali aur Moolank ${moolank} ka analysis:
 
-**Guruji's Insight:**
-Aapke Moolank ${moolank} aur Bhagyank ${bhagyank} ke according aapka romantic magnetism boost ho raha hai. Heartfelt aur respectful tarike se proposal dene par **Positive YES** response milne ke ${p1}%+ chances hain!
+• **5th House (Love & Romance) & Shukra (Venus) Prabhav:**
+  Aapke Moolank ${moolank} (${moolankInfo.planet}) aur Bhagyank ${bhagyank} (${bhagyankInfo.planet}) me 5th House lord Venus ka active aspect hai.
 
-**Auspicious Time To Propose:**
-Friday (Shukravar) evening during Shukra Hora (5:30 PM to 7:15 PM) or Abhijit Muhurat.
+• **Proposal Acceptance Chance:**
+  Respectful aur genuine tarike se feelings express karne par positive response milne ke **${p1}% chances** hain. Emotional attraction score **${p2}%** hai.
 
-**Vedic Upay (Remedy):**
-1. Chant **'Om Draam Dreem Droum Sah Shukraya Namah'** 108 times on Fridays.
-2. Keep a Rose Quartz crystal or pink flower with you for romantic harmony.`;
+• **Auspicious Timing:**
+  Friday (Shukravar) evening ya Abhijit Muhurat me baat shuru karna astrological perspective se sabse favorable rahega.`;
+
+    if (wantsRemedy) {
+      reply += `\n\n**Vedic Upay (Targeted for Romantic Harmony & Venus Strength):**
+1. Fridays ko **'Om Draam Dreem Droum Sah Shukraya Namah'** 108 baar jaap karein.
+2. Apne paas Rose Quartz crystal ya light pink handkerchief rakhein.`;
+    }
+    return reply;
   }
 
-  // Ex Return
-  if (
-    lower.includes("ex") ||
-    lower.includes("return") ||
-    lower.includes("wapas") ||
-    lower.includes("breakup") ||
-    lower.includes("past relationship") ||
-    lower.includes("block") ||
-    lower.includes("unblock")
-  ) {
-    const exChance = Math.min(55, Math.max(25, 30 + (seed % 25)));
-    const moveOnChance = 100 - exChance + 25;
-    return `Pranam ${name}! 💔
+  // 3. EX RETURN & BREAKUP
+  if (/ex|return|wapas|breakup|past relationship|block|unblock/i.test(lower)) {
+    const exChance = Math.min(52, Math.max(22, 28 + (seed % 24)));
+    const moveOnChance = 100 - exChance + 20;
 
-**💔 Ex Return & Reconnection Prediction:**
-- **Ex Reconnection Chance:** **${exChance}% Low/Moderate Probability** in current Rahu-Ketu transit.
-- **Moving On & True Soulmate Arrival:** **${moveOnChance}% High Peace & Genuine Love**
-- **Moolank (${moolank}) & Bhagyank (${bhagyank}) karmic path:** Bhagyank ${bhagyank} indicates an upgrade in soulmate relationship by 2026-2027.
+    let reply = `Pranam ${name}! 💔
 
-**Guruji's Insight:**
-Kundali ke 8th House aur Venus-Rahu transit me past karmic lessons complete ho rahe hain. Ex ke piche waqt zaya karne se accha hai ki aap aage badhein, kyunki ${moveOnChance}% chances hain ki ek sachha aur devoted partner jaldi aapki life me aayega!
+Past relationship aur ex ke wapas aane ke vishaye me astrological evaluation:
 
-**Vedic Upay:**
-1. Perform Shivling Jalabhishek on Mondays with **'Om Namah Shivaya'**.
-2. Donate white sweets or milk on Monday evenings for emotional peace.`;
+• **8th House Karmic Cycle & Transit:**
+  Kundali me Venus-Rahu transit past karmic lesson complete kar raha hai. Ex ki wapsi ke chances **${exChance}% (Low to Moderate)** hain.
+
+• **New Chapter & Future Soulmate:**
+  Bhagyank ${bhagyank} (${bhagyankInfo.planet}) yeh sanket deta hai ki self-growth par focus karne se aane wale time me ek sachha aur loyal partner milne ke **${moveOnChance}% strong chances** hain.
+
+• **Guruji's Guidance:**
+  Purani yaadon me apna time waist na karein. Planetary transits aapko aage badhne ka raasta dikha rahe hain.`;
+
+    if (wantsRemedy) {
+      reply += `\n\n**Vedic Upay (For Emotional Peace & Karmic Healing):**
+1. Mondays ko Shivling par Jalabhishek karein aur **'Om Namah Shivaya'** jaap karein.
+2. Monday evenings ko kisi zarooratmand ko doodh ya safed mithai daan karein.`;
+    }
+    return reply;
   }
 
-  // Marriage & Wedding
-  if (
-    lower.includes("shaadi") ||
-    lower.includes("marriage") ||
-    lower.includes("wedding") ||
-    lower.includes("spouse") ||
-    lower.includes("husband") ||
-    lower.includes("wife") ||
-    lower.includes("partner") ||
-    lower.includes("rishta") ||
-    lower.includes("mangal")
-  ) {
-    return `Pranam ${name}! 💍✨
+  // 4. MARRIAGE & TIMING
+  if (/shaadi|marriage|wedding|spouse|husband|wife|partner|rishta|mangal/i.test(lower)) {
+    let reply = `Pranam ${name}! 💍✨
 
-**💒 Marriage & Life Partner Timing Prediction:**
-- **Marriage Favorable Yoga:** **${p1}% High Probability Window!**
-- **Moolank-Bhagyank Compatibility Score:** **${p2}% Harmonious Sync**
-- **7th House & Bhagyank (${bhagyank}):** Brihaspati (Jupiter) transit over 7th House of Marriage combined with Bhagyank ${bhagyank} (${bhagyankInfo.planet}) indicates strong marital alliance yoga.
+Shaadi aur life partner ke sawal par aapki Kundali (${rashi} Rashi, ${lagna} Lagna) ka vivaran:
 
-**Guruji's Insight:**
-Aapki Kundali aur Numerology me 7th House (Vivah Sthan) me Guru aur Shukra ka shubh prabhav hai. Agle 6 se 14 mahine ke andar ek caring, loyal aur well-settled spouse milne ke strong yoga hain.
+• **7th House (Vivah Sthan) & Jupiter/Venus Aspect:**
+  Guru (Jupiter) aur Shukra (Venus) ka 7th House par shubh drishti yog hai. Bhagyank ${bhagyank} (${bhagyankInfo.planet}) marital harmony ko support karta hai.
 
-**Vedic Upay:**
-1. Chant **'Om Brim Brihaspataye Namah'** on Thursdays.
-2. Offer yellow flowers or chana dal at Vishnu-Laxmi temple on Thursday mornings.`;
+• **Marriage Yoga & Timing Window:**
+  Agle 6 se 14 mahine ke dauran ek caring, well-settled aur understanding life partner milne ka **${p1}% strong yoga** hai.
+
+• **Nature of Spouse:**
+  Spouse highly educated, supportive aur respectable background se honge.`;
+
+    if (wantsRemedy) {
+      reply += `\n\n**Vedic Upay (For Early & Happy Marriage - Jupiter Alignment):**
+1. Thursdays ko **'Om Brim Brihaspataye Namah'** ka 108 baar jaap karein.
+2. Thursdays ko Vishnu-Laxmi mandir me peele phool ya chana dal arpit karein.`;
+    }
+    return reply;
   }
 
-  // Job, Career, Promotion
-  if (
-    lower.includes("job") ||
-    lower.includes("career") ||
-    lower.includes("promotion") ||
-    lower.includes("salary") ||
-    lower.includes("business") ||
-    lower.includes("hike") ||
-    lower.includes("work") ||
-    lower.includes("office") ||
-    lower.includes("company") ||
-    lower.includes("switch")
-  ) {
-    return `Pranam ${name}! 💼💰
+  // 5. JOB, CAREER & SALARY
+  if (/job|career|promotion|salary|business|hike|work|office|company|switch/i.test(lower)) {
+    let reply = `Pranam ${name}! 💼💰
 
-**💼 Career, Job & Salary Growth Prediction:**
-- **Job Promotion / Salary Hike Probability:** **${p1}% High Chance!**
-- **Moolank (${moolank}) & Bhagyank (${bhagyank}) Career Synergy:** **${p2}% Success Index**
-- **10th House Karma Sthan:** Driver Number ${moolank} (${moolankInfo.planet}) & Sun/Saturn transits create solid authority & financial stability for ${rashi} Rashi.
+Career, job growth aur financial stability ka Kundali vishleshana:
 
-**Guruji's Insight:**
-Aapke Moolank ${moolank} aur 10th House (Karma Sthan) me Surya (Sun) Grah ki position kaafi mazboot hai. Agle 3-6 mahine me aapki salary hike aur post promotion ke shubh yog ban rahe hain.
+• **10th House (Karma Sthan) & Sun/Saturn Balance:**
+  Moolank ${moolank} (${moolankInfo.planet}) leadership traits deta hai. 10th House me Surya aur Guru transit se authority aur career upliftment ke yog hain.
 
-**Vedic Upay:**
-1. Subah Surya Dev ko Jal (Arghya) chadhayein with **'Om Suryaya Namah'**.
-2. Wednesday ko gaaye ko hara chara khilayein for business intellect.`;
+• **Promotion & Salary Hike Probability:**
+  Agle 3 se 6 mahine me career transition, promotion, ya salary hike ka **${p1}% high chance** hai.
+
+• **Guruji's Practical Advice:**
+  Skill upgrade karein aur office conflicts se door rahein; Dasha period aapko growth dene ke liye tayyar hai.`;
+
+    if (wantsRemedy) {
+      reply += `\n\n**Vedic Upay (For Career Promotion & Authority - Sun Alignment):**
+1. Daily subah Surya Dev ko Jal (Arghya) arpit karein with **'Om Suryaya Namah'**.
+2. Wednesdays को gaaye ko hara chara khilayein intellect aur business acumen ke liye.`;
+    }
+    return reply;
   }
 
-  // Foreign Travel & Visa
-  if (
-    lower.includes("foreign") ||
-    lower.includes("visa") ||
-    lower.includes("pr") ||
-    lower.includes("abroad") ||
-    lower.includes("videsh") ||
-    lower.includes("passport") ||
-    lower.includes("travel")
-  ) {
-    return `Pranam ${name}! ✈️🌍
+  // 6. FOREIGN TRAVEL & VISA
+  if (/foreign|visa|pr|abroad|videsh|passport|travel/i.test(lower)) {
+    let reply = `Pranam ${name}! ✈️🌍
 
-**🌍 Foreign Placement & Visa Success Prediction:**
-- **Visa Approval & Foreign Settlement Chance:** **${p1}% High Success Rate!**
-- **Moolank (${moolank}) Travel Alignment:** **${p2}% Favorable Alignment**
-- **House Transits:** 9th House (Bhagya Sthan) & 12th House (Videsh Sthan) lords are active for ${rashi} Rashi with Bhagyank ${bhagyank}.
+Videsh Yatra aur Visa ke vishaye me planetary positioning:
 
-**Guruji's Insight:**
-Aapke 12th House me Rahu aur Jupiter ka positive transit hai. Abroad higher studies, job assignment, ya PR application me success milne ke strong chances hain.
+• **12th House (Videsh Sthan) & 9th House (Bhagya Sthan) Yog:**
+  Aapki Rashi ${rashi} me Rahu aur Guru ka 12th house aspect foreign travel aur abroad settlement ko support karta hai.
 
-**Vedic Upay:**
-1. Chant **'Om Rahave Namah'** on Saturdays.
-2. Keep a silver coin wrapped in clean cloth with your passport/documents.`;
+• **Visa Approval & Success Rate:**
+  Foreign assignment, higher education ya PR application me success ka **${p1}% high probability** hai.`;
+
+    if (wantsRemedy) {
+      reply += `\n\n**Vedic Upay (For Foreign Travel Success - Rahu/Ketu Cleanse):**
+1. Saturdays ko **'Om Rahave Namah'** ka jaap karein.
+2. Apne passport/documents ke saath chandi ka sikka rkhein.`;
+    }
+    return reply;
   }
 
-  // Money, Debt & Property
-  if (
-    lower.includes("money") ||
-    lower.includes("dhan") ||
-    lower.includes("debt") ||
-    lower.includes("karza") ||
-    lower.includes("lottery") ||
-    lower.includes("invest") ||
-    lower.includes("profit") ||
-    lower.includes("property") ||
-    lower.includes("makan") ||
-    lower.includes("car") ||
-    lower.includes("gaadi")
-  ) {
-    return `Pranam ${name}! 💰🏠
+  // GENERAL RESPONSE
+  let reply = `Pranam ${name}! 🙏
 
-**🏠 Wealth, Property & Financial Prosperity Prediction:**
-- **Financial Growth & Debt Clearance Chance:** **${p1}% High Prosperity!**
-- **Property & Vehicle Purchase Yoga:** **${p2}% Favorable Window**
-- **Bhagyank (${bhagyank}) Wealth Index:** Laxmi-Narayan Yoga supports asset accumulation for Moolank ${moolank} & ${lagna} Lagna.
+Aapke sawal par aapki Janm Kundali (${rashi} Rashi, ${lagna} Lagna) aur Numerology (Moolank ${moolank}, Bhagyank ${bhagyank}) ka realistic evaluation:
 
-**Guruji's Insight:**
-Dhana Sthan (2nd & 11th House) me Shubh grah ki drishti hone se purane karzo se rahat milegi aur naye aay (income) ke strot khulenge.
+• **Astrological Insights:**
+  Driver Number ${moolank} (${moolankInfo.planet}) aur Conductor Number ${bhagyank} (${bhagyankInfo.planet}) ki dasha aapke goal ke sath align ho rahi hai.
 
-**Vedic Upay:**
-1. Chant Laxmi Beej Mantra: **'Om Shreem Hreem Shreem Kamale Kamalalaye Praseed'** daily.
-2. Light a Ghee lamp (Diya) near Tulsi plant in the evening.`;
+• **Favorable Alignment & Probability:**
+  Current planetary transits me aapke maamle me positive outcome ke **${p1}% favorable chances** hain.
+
+• **Guruji's Perspective:**
+  Patience aur consistent effort banaye rakhein, grah dasha aapke paksh me rukh mod rahi hai.`;
+
+  if (wantsRemedy) {
+    reply += `\n\n**Vedic Upay (General Energy Alignment):**
+1. Daily **'Om Namah Shivaya'** ka 108 baar jaap karein.
+2. Rozana subah Surya Dev ko arghya arpit karein.`;
   }
-
-  // Health
-  if (
-    lower.includes("health") ||
-    lower.includes("bimari") ||
-    lower.includes("illness") ||
-    lower.includes("stress") ||
-    lower.includes("headache") ||
-    lower.includes("mental") ||
-    lower.includes("peace") ||
-    lower.includes("swasthya")
-  ) {
-    return `Pranam ${name}! 🌿🕊️
-
-**🌿 Health, Vitality & Recovery Prediction:**
-- **Overall Health Recovery Rate:** **${p1}% High Energy Level**
-- **Mental Peace & Stress Relief Score:** **${p2}% Vitality Index**
-- **Moolank (${moolank}) Protection:** 1st House & Sun/Moon placements shield your vitality for ${rashi} Rashi.
-
-**Guruji's Insight:**
-6th House (Roga Sthan) me Rahu/Saturn ka prabhav kam ho raha hai. Mental stress aur seasonal illness se jald rahat milegi.
-
-**Vedic Upay:**
-1. Chant **Mahamrityunjaya Mantra**: 'Om Tryambakam Yajamahe...' 11 times daily.
-2. Drink water from a copper vessel in the morning.`;
-  }
-
-  // Timeline
-  if (
-    lower.includes("timeline") ||
-    lower.includes("future") ||
-    lower.includes("past") ||
-    lower.includes("present") ||
-    lower.includes("2026") ||
-    lower.includes("2027") ||
-    lower.includes("2028") ||
-    lower.includes("saal")
-  ) {
-    return `Pranam ${name}! ⏳
-
-**⏳ Life Timeline Forecast (Past, Present & Future):**
-- **Past Karmic Phase:** Completed major structural struggles & learning.
-- **Present Dasha Phase:** Transiting into **Guru (Jupiter) Benefic Period**.
-- **Moolank (${moolank}) & Bhagyank (${bhagyank}) Golden Peak:** **2026 to 2028 (${p1}% High Growth Window)**
-
-**Guruji's Insight:**
-Kundali me Mahadasha parivartan aur Bhagyank ${bhagyank} (${bhagyankInfo.planet}) se dhan, career aur family me sthirta aayegi. Aane wale saal me naye moke aur property gain ke yoga hain.
-
-**Vedic Upay:**
-Brihaspati Gayatri Mantra jaap karein aur Thursdays ko Vishnu Sahasranama sunein.`;
-  }
-
-  // General specific prediction
-  return `Pranam ${name}! 🙏
-
-**✨ Overall Vedic & Numerology Life Prediction (${rashi} Rashi, Moolank ${moolank}, Bhagyank ${bhagyank}):**
-- **Target Goal Success Probability:** **${p1}% High Potential**
-- **Moolank (${moolank}) & Bhagyank (${bhagyank}) Resonance:** **${p2}% Harmonic Alignment**
-- **Current Transit:** Favorable transit of Jupiter & Sun in Karma Sthan.
-
-**Guruji's Advice:**
-Aapke question ke anusar Moolank ${moolank} (${moolankInfo.planet}) aur Bhagyank ${bhagyank} (${bhagyankInfo.planet}) me Shubh Raj Yoga ki sthiti hai. Apne lakshya par dhyan kendrit karein, grah dasha aapke paksh me rukhm le rahi hai.
-
-**Vedic Upay:**
-Daily **'Om Namah Shivaya'** & **Gayatri Mantra** 108 baar jaap karein aur needy logon ko daan dein.`;
+  return reply;
 }
 
 // AI Astrologer Chat Endpoint
@@ -837,26 +730,23 @@ app.post("/api/ai/chat", async (req, res) => {
       return res.json({ reply: generateFallbackChatReply(userPrompt, { ...kundaliContext, moolank: moolankVal, bhagyank: bhagyankVal }) });
     }
 
-    let systemInstruction = `You are "Guruji Jyotish", an authentic, polite, and deeply knowledgeable AI Vedic & Numerology Astrologer.
-You speak in a warm, respectful tone using friendly English mixed with respectful Hindi/Hinglish terms like 'Pranam', 'Janm Kundali', 'Moolank', 'Bhagyank', 'Graha Dasha', 'Rashi', and 'Upay'.
+    let systemInstruction = `You are "Guruji Jyotish", an authentic, highly respected, and deeply knowledgeable AI Vedic & Numerology Astrologer.
+You speak in a warm, polite, empathetic tone using a natural mix of English and Hindi/Hinglish terms (e.g. 'Pranam', 'Janm Kundali', 'Moolank', 'Bhagyank', 'Graha Dasha', 'Rashi').
 
-CRITICAL MANDATES & DIRECT QUESTION ANSWERING:
-1. READ THE USER'S EXACT QUESTION CAREFULLY BEFORE ANSWERING:
-   - Your response MUST directly answer the user's specific question (e.g. regarding love, crush, ex, marriage, job, business loss, competitive exams, health, palm lines, family, or travel).
-   - DO NOT copy-paste unrelated templates or dump all categories together! Focus specifically on what the user asked.
+CRITICAL RULES AND MANDATES FOR GURUJI:
+1. DEEP, DIRECT, & REALISTIC ANALYSIS (NO CANNED TEMPLATES):
+   - Listen carefully to the user's specific question. Provide an authentic, customized astrological analysis based on their query and birth details.
+   - DO NOT use repetitive copy-paste headers or force identical percentage lists in every response.
+   - Speak naturally like a real human astrologer. Analyze relevant houses (1st, 2nd, 5th, 7th, 10th, 12th, etc.), planetary transits (Jupiter, Saturn, Rahu-Ketu), and Dasha periods related to their exact question.
+   - Vary your structure and tone naturally so every conversation feels unique, genuine, and deeply personal.
 
-2. CALCULATE SPECIFIC PERCENTAGE PROBABILITIES & TIMINGS FOR THE USER'S QUESTION:
-   - Provide 1-2 percentage probabilities (e.g., 82% Success Chance, 75% Attraction, 88% Growth) SPECIFIC to the question asked.
-   - Mention key timing windows (e.g., next 2-4 months, or exact year).
+2. STRICT RULE ON REMEDIES (UPAY / GEMSTONES / MANTRAS):
+   - ABSOLUTELY DO NOT PROVIDE REMEDIES, UPAY, GEMSTONES, OR MANTRAS UNLESS THE USER EXPLICITLY ASKS FOR THEM in their message (e.g. asking "upay batao", "remedy please", "gemstone", "kaise theek karein", "totka", "solution", "mantra", "kya karein").
+   - If the user DID NOT ask for remedies/upay, DO NOT include any 'Vedic Upay' or 'Remedy' section. End your response after providing deep, thoughtful astrological analysis, practical advice, and timeline guidance.
 
-3. INTEGRATE NUMEROLOGY & ASTROLOGY SPECIFICALLY:
-   - Reference Moolank ${moolankVal} (Ruled by ${moolankInfo.planet}) and Bhagyank ${bhagyankVal} (Ruled by ${bhagyankInfo.planet}) to explain why planetary placements affect their specific situation.
-
-4. RESPONSE STRUCTURE:
-   - Respectful Greeting addressing the user (${kundaliContext?.name || 'Jatak'}) with Moolank & Rashi.
-   - Direct, detailed Astrological analysis answering their specific question.
-   - Specific probability percentage & timeline window in bold.
-   - 2 practical Vedic remedies (Upay) directly targeted at resolving their specific concern.`;
+3. REALISTIC & TAILORED REMEDIES (WHEN EXPLICITLY REQUESTED):
+   - If (and ONLY IF) the user explicitly asks for remedies, provide highly specific, realistic, and planet-focused remedies tailored to their specific chart affliction (e.g. Venus/Shukra for love, Sun/Surya for career, Saturn/Shani for discipline, Rahu/Ketu for mental calm, Mercury/Budh for intellect).
+   - Avoid generic copy-paste remedies. Provide practical actions, specific deity prayers, or ethical/lifestyle remedies matching the planet in question.`;
 
     if (kundaliContext) {
       systemInstruction += `\n\nUser Astrological & Numerology Profile:\n- Name: ${kundaliContext.name}\n- Date of Birth: ${kundaliContext.dob}\n- Time of Birth: ${kundaliContext.tob}\n- Place of Birth: ${kundaliContext.pob}\n- Moon Sign (Rashi): ${kundaliContext.rashi}\n- Ascendant (Lagna): ${kundaliContext.lagna}\n- Moolank (Driver Number): ${moolankVal} (Ruled by ${moolankInfo.planet})\n- Bhagyank (Conductor Number): ${bhagyankVal} (Ruled by ${bhagyankInfo.planet})`;
