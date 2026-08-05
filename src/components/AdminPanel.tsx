@@ -24,7 +24,11 @@ import {
   Key,
   MessageSquare,
   Activity,
-  FileText
+  FileText,
+  RefreshCw,
+  X,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 import { UserProfile, RechargeTransaction, UserActivityLog } from '../types';
 import {
@@ -39,6 +43,7 @@ import {
   deleteUserAccount,
   updateUserMinutesDirectly,
   fetchUserById,
+  fetchUserByIdAsync,
   adminResetUserPin,
   getUserActivityLogs,
   clearUserActivityLogs
@@ -61,13 +66,59 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
 
   // Admin Panel Data & Filter State
   const [searchQuery, setSearchQuery] = useState('');
-
   const [filterType, setFilterType] = useState<'ALL' | 'GOOGLE' | 'CUSTOM'>('ALL');
   const [targetId, setTargetId] = useState('');
   const [addMinsInput, setAddMinsInput] = useState(30);
   const [actionType, setActionType] = useState<'ADD' | 'DEDUCT'>('ADD');
   const [adminNote, setAdminNote] = useState('Astrologer Consultation Adjustment');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Syncing & Refresh State
+  const [isSyncingUsers, setIsSyncingUsers] = useState(false);
+  const [refreshCounter, setRefreshCounter] = useState(0);
+
+  // Target User Live Lookup State
+  const [asyncLookupUser, setAsyncLookupUser] = useState<UserProfile | null>(null);
+
+  const handleSyncServerUsers = async () => {
+    setIsSyncingUsers(true);
+    try {
+      await syncAllUsersFromServer();
+      onRefreshProfile();
+      setRefreshCounter(prev => prev + 1);
+      setSuccessMsg('✅ Successfully synced all user accounts across devices from Cloud Server!');
+    } catch (e) {
+      console.error('Error syncing server users:', e);
+      setSuccessMsg('❌ Error syncing with cloud server.');
+    } finally {
+      setIsSyncingUsers(false);
+    }
+  };
+
+  // Live async lookup effect for targetId
+  React.useEffect(() => {
+    let active = true;
+    const clean = targetId.trim();
+    if (clean) {
+      const local = fetchUserById(clean);
+      if (local) {
+        setAsyncLookupUser(local);
+      } else {
+        fetchUserByIdAsync(clean).then(res => {
+          if (active) {
+            setAsyncLookupUser(res);
+            if (res) {
+              setRefreshCounter(prev => prev + 1);
+              onRefreshProfile();
+            }
+          }
+        });
+      }
+    } else {
+      setAsyncLookupUser(null);
+    }
+    return () => { active = false; };
+  }, [targetId, refreshCounter]);
 
   // Edit Balance Modal State
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
@@ -97,25 +148,76 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
 
   const handleExportCSV = () => {
     const users = Object.values(getUsersDb());
-    const headers = ['User ID', 'Name', 'Email', 'Security PIN', 'Available Minutes', 'Total Recharged', 'Created At'];
+    const headers = ['User ID', 'Name', 'Email', 'Security PIN', 'Available Minutes', 'Total Recharged Mins', 'Account Type', 'Registration Date'];
     const rows = users.map(u => [
       `"${u.id}"`,
-      `"${u.name}"`,
-      `"${u.email || ''}"`,
+      `"${(u.name || '').replace(/"/g, '""')}"`,
+      `"${(u.email || '').replace(/"/g, '""')}"`,
       `"${u.pin || '1234'}"`,
-      u.availableMinutes,
-      u.totalRechargedMinutes,
-      `"${new Date(u.createdAt).toLocaleString()}"`
+      u.availableMinutes ?? 0,
+      u.totalRechargedMinutes ?? 0,
+      `"${String(u.id).startsWith('G-') ? 'Google Auth' : 'Custom ID'}"`,
+      `"${u.createdAt ? new Date(u.createdAt).toLocaleString() : ''}"`
     ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvStr = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", url);
     link.setAttribute("download", `AstroVeda_Users_Database_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setSuccessMsg('✅ Exported User Database for Google Sheets / Excel!');
+    URL.revokeObjectURL(url);
+    setSuccessMsg('✅ User Database CSV downloaded! You can import this file directly into Google Sheets.');
+  };
+
+  const handleCopyForGoogleSheets = () => {
+    const users = Object.values(getUsersDb());
+    const headers = ['User ID', 'Name', 'Email', 'Security PIN', 'Available Minutes', 'Total Recharged Mins', 'Account Type', 'Registration Date'];
+    const rows = users.map(u => [
+      u.id,
+      u.name || '',
+      u.email || '',
+      u.pin || '1234',
+      u.availableMinutes ?? 0,
+      u.totalRechargedMinutes ?? 0,
+      String(u.id).startsWith('G-') ? 'Google Auth' : 'Custom ID',
+      u.createdAt ? new Date(u.createdAt).toLocaleString() : ''
+    ]);
+    const tsvContent = [headers.join('\t'), ...rows.map(r => r.join('\t'))].join('\n');
+    navigator.clipboard.writeText(tsvContent).then(() => {
+      setSuccessMsg('📋 Copied all User Data to Clipboard! Open Google Sheets (sheets.google.com) and press Ctrl+V to paste immediately.');
+    }).catch(err => {
+      console.error('Failed to copy TSV: ', err);
+    });
+  };
+
+  const handleExportTxCSV = () => {
+    const logs = getTransactionLogs() || [];
+    const headers = ['Tx ID', 'User ID', 'User Name', 'Minutes Added', 'Amount Paid (INR)', 'Type', 'Payment Method', 'Notes', 'Timestamp'];
+    const rows = logs.map(l => [
+      `"${l.id}"`,
+      `"${l.userId}"`,
+      `"${(l.userName || '').replace(/"/g, '""')}"`,
+      l.minutesAdded,
+      l.amountPaid,
+      `"${l.type}"`,
+      `"${l.method || ''}"`,
+      `"${(l.grantedBy || l.note || '').replace(/"/g, '""')}"`,
+      `"${new Date(l.timestamp).toLocaleString()}"`
+    ]);
+    const csvStr = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `AstroVeda_Topup_Transactions_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setSuccessMsg('✅ Top-up Transactions CSV downloaded for Google Sheets!');
   };
 
   const handleVerifyPasscode = (e: React.FormEvent) => {
@@ -209,11 +311,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
   // Filtered Users List
   const filteredUsers = allUsers.filter((u) => {
     if (!u || !u.id) return false;
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) {
+      if (filterType === 'GOOGLE') return String(u.id).startsWith('G-');
+      if (filterType === 'CUSTOM') return !String(u.id).startsWith('G-');
+      return true;
+    }
+
     const uId = String(u.id).toLowerCase();
     const uName = String(u.name || '').toLowerCase();
-    const q = searchQuery.toLowerCase();
-    const matchesQuery = uId.includes(q) || uName.includes(q);
+    const uEmail = String(u.email || '').toLowerCase();
+    const uPin = String(u.pin || '').toLowerCase();
 
+    const matchesQuery = uId.includes(q) || uName.includes(q) || uEmail.includes(q) || uPin.includes(q);
     if (!matchesQuery) return false;
 
     if (filterType === 'GOOGLE') return String(u.id).startsWith('G-');
@@ -315,14 +425,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleSyncServerUsers}
+              disabled={isSyncingUsers}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-bold text-xs hover:bg-indigo-500/30 transition-all cursor-pointer shadow-lg disabled:opacity-50"
+              title="Sync all accounts created across devices from Cloud Server DB"
+            >
+              <RefreshCw className={`w-4 h-4 text-indigo-400 ${isSyncingUsers ? 'animate-spin' : ''}`} />
+              <span>{isSyncingUsers ? 'Syncing...' : 'Sync Cloud Users'}</span>
+            </button>
+
             <button
               onClick={handleExportCSV}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-bold text-xs hover:bg-emerald-500/30 transition-all cursor-pointer shadow-lg"
               title="Download CSV database for Google Sheets or Excel"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-              <span>Export to Google Sheets CSV</span>
+              <span>Export CSV</span>
             </button>
 
             <button
@@ -377,6 +497,67 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
           </div>
           <div className="text-xl font-bold text-purple-200 font-mono">{txLogs.length} Logs</div>
           <div className="text-[10px] text-purple-300">Transaction history</div>
+        </div>
+      </div>
+
+      {/* Dedicated Google Spreadsheet & Multi-Device Storage Control Box */}
+      <div className="p-5 bg-gradient-to-r from-emerald-950/40 via-black/50 to-indigo-950/40 border border-emerald-500/30 rounded-2xl space-y-4 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0">
+              <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                Google Sheets Integration & Database Backup
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono border border-emerald-500/30">
+                  Universal Storage
+                </span>
+              </h3>
+              <p className="text-xs text-gray-300">
+                User data is stored locally, saved in Cloud Database Server, and can be copied or exported to Google Sheets with 1 click.
+              </p>
+            </div>
+          </div>
+
+          <a
+            href="https://sheets.google.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 text-xs font-bold text-gray-200 hover:bg-white/20 hover:text-white transition-all w-fit shrink-0"
+          >
+            <span>Open Google Sheets</span>
+            <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
+          </a>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+          <button
+            onClick={handleCopyForGoogleSheets}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600/30 border border-emerald-400/40 text-emerald-200 font-bold text-xs hover:bg-emerald-600/50 transition-all cursor-pointer shadow-lg"
+            title="Copies table data formatted for instant Ctrl+V paste into Google Sheets"
+          >
+            <Copy className="w-4 h-4 text-emerald-300" />
+            <span>Copy Table for Google Sheets</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600/30 border border-indigo-400/40 text-indigo-200 font-bold text-xs hover:bg-indigo-600/50 transition-all cursor-pointer shadow-lg"
+            title="Download UTF-8 CSV database file to upload into Google Sheets"
+          >
+            <Download className="w-4 h-4 text-indigo-300" />
+            <span>Export Users CSV (.csv)</span>
+          </button>
+
+          <button
+            onClick={handleExportTxCSV}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600/30 border border-purple-400/40 text-purple-200 font-bold text-xs hover:bg-purple-600/50 transition-all cursor-pointer shadow-lg"
+            title="Download Topup transactions CSV log for Google Sheets audit"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-purple-300" />
+            <span>Export Topups CSV</span>
+          </button>
         </div>
       </div>
 
@@ -441,13 +622,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
                 
                 {/* Live Lookup Feedback */}
                 {targetId.trim() && (() => {
-                  const foundUser = fetchUserById(targetId.trim());
+                  const foundUser = asyncLookupUser || fetchUserById(targetId.trim());
                   if (foundUser) {
                     return (
-                      <div className="mt-2 p-2 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-xs text-emerald-200 flex items-center justify-between">
+                      <div className="mt-2 p-2 bg-emerald-500/15 border border-emerald-500/30 rounded-xl text-xs text-emerald-200 flex items-center justify-between animate-fadeIn">
                         <div>
                           <span className="font-bold text-white block">{foundUser.name}</span>
-                          <span className="text-[10px] text-gray-300 font-mono">ID: {foundUser.id}</span>
+                          <span className="text-[10px] text-gray-300 font-mono">ID: {foundUser.id} {foundUser.email ? `(${foundUser.email})` : ''}</span>
                         </div>
                         <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[11px]">
                           {foundUser.availableMinutes} Mins Balance
@@ -456,8 +637,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
                     );
                   }
                   return (
-                    <div className="mt-2 p-2 bg-amber-500/15 border border-amber-500/30 rounded-xl text-[11px] text-amber-200">
-                      ⚠️ User ID '{targetId.trim()}' not found in database. Enter an existing ID or provision it below.
+                    <div className="mt-2 p-2 bg-amber-500/15 border border-amber-500/30 rounded-xl text-[11px] text-amber-200 flex items-center justify-between gap-2">
+                      <span>⚠️ Looking up User ID '{targetId.trim()}' on Cloud Server...</span>
+                      <button
+                        type="button"
+                        onClick={handleSyncServerUsers}
+                        className="text-[10px] underline hover:text-white font-bold shrink-0"
+                      >
+                        Force Sync
+                      </button>
                     </div>
                   );
                 })()}
@@ -607,17 +795,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
               {/* Filter Tabs & Search Bar */}
               <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1">
-                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+                  <Search className="w-3.5 h-3.5 text-indigo-400 absolute left-2.5 top-2.5" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search User ID or Name..."
-                    className="w-full pl-8 pr-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                    placeholder="Search user by Name, ID, Email, or PIN..."
+                    className="w-full pl-8 pr-8 py-1.5 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 transition-all"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-2.5 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                      title="Clear search query"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
 
-                <div className="flex gap-1 bg-black/40 p-1 rounded-xl border border-white/10 text-[11px]">
+                <div className="flex gap-1 bg-black/40 p-1 rounded-xl border border-white/10 text-[11px] shrink-0">
                   <button
                     onClick={() => setFilterType('ALL')}
                     className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
@@ -644,6 +842,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
                   </button>
                 </div>
               </div>
+
+              {searchQuery && (
+                <div className="text-[11px] text-indigo-300 flex items-center justify-between pt-1 font-medium">
+                  <span>Filtered results for: "{searchQuery}"</span>
+                  <span className="text-gray-400">Showing {filteredUsers.length} of {allUsers.length} profiles</span>
+                </div>
+              )}
             </div>
 
             {/* Account Rows */}
