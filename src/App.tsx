@@ -10,7 +10,8 @@ import {
   getActiveUserProfile,
   updateUserProfile,
   deductConsultationMinute,
-  syncAllUsersFromServer
+  syncAllUsersFromServer,
+  initFirestoreLiveSync
 } from './utils/minutesManager';
 import { Navbar } from './components/Navbar';
 import { MinutesModal } from './components/MinutesModal';
@@ -34,19 +35,24 @@ export default function App() {
   const [isConsultationActive, setIsConsultationActive] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  // Real-time automatic background synchronization across all devices
+  // Real-time automatic background synchronization across all devices and Firestore
   useEffect(() => {
-    // Initial sync on app load
+    // 1. Live Firestore collection subscription
+    initFirestoreLiveSync(() => {
+      setUserProfile(getActiveUserProfile());
+    });
+
+    // 2. Initial server sync on app load
     syncAllUsersFromServer().then(() => {
       setUserProfile(getActiveUserProfile());
     });
 
-    // Background interval to pull accounts created/recharged on other devices
+    // 3. Background interval fallback
     const syncInterval = setInterval(() => {
       syncAllUsersFromServer().then(() => {
         setUserProfile(getActiveUserProfile());
       });
-    }, 5000);
+    }, 4000);
 
     return () => clearInterval(syncInterval);
   }, []);

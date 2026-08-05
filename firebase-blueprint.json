@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "AstroVeda User Account Profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "pin": { "type": "string" },
+        "availableMinutes": { "type": "number" },
+        "totalRechargedMinutes": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "TopupTransaction": {
+      "title": "TopupTransaction",
+      "description": "Log of minutes recharge transactions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "minutesAdded": { "type": "number" },
+        "amountPaid": { "type": "number" },
+        "type": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "userId", "minutesAdded"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profiles indexed by User ID"
+    },
+    "/topups/{topupId}": {
+      "schema": { "$ref": "#/entities/TopupTransaction" },
+      "description": "Top-up transaction history"
+    }
+  }
+}

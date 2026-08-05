@@ -1,4 +1,91 @@
 import { UserProfile, RechargePlan, RechargeTransaction, UserActivityLog } from '../types';
+import { db, auth } from '../lib/firebase';
+import { collection, doc, setDoc, getDoc, getDocs, onSnapshot } from 'firebase/firestore';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+let firestoreUnsubscribe: (() => void) | null = null;
+
+export function initFirestoreLiveSync(onUsersUpdated?: (users: { [id: string]: UserProfile }) => void) {
+  if (firestoreUnsubscribe) return;
+  try {
+    const usersCol = collection(db, 'users');
+    firestoreUnsubscribe = onSnapshot(usersCol, (snapshot) => {
+      const users = getUsersDb();
+      let changed = false;
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as UserProfile;
+        if (data && data.id) {
+          users[data.id] = { ...users[data.id], ...data };
+          changed = true;
+        }
+      });
+      if (changed) {
+        saveUsersDb(users, false); // don't write back to firestore in listener
+        if (onUsersUpdated) onUsersUpdated(users);
+      }
+    }, (err) => {
+      handleFirestoreError(err, OperationType.GET, 'users');
+    });
+  } catch (e) {
+    console.error('Firestore live sync init error:', e);
+  }
+}
+
+export async function saveUserToFirestore(user: UserProfile) {
+  if (!user || !user.id) return;
+  try {
+    const userDocRef = doc(db, 'users', user.id);
+    await setDoc(userDocRef, user, { merge: true });
+  } catch (err) {
+    console.error('Error saving user to Firestore:', err);
+  }
+}
 
 const STORAGE_USERS_KEY = 'astroveda_users_v2';
 const STORAGE_CURRENT_ID_KEY = 'astroveda_active_userid_v2';
@@ -107,9 +194,16 @@ export function getUsersDb(): { [id: string]: UserProfile } {
   }
 }
 
-export function saveUsersDb(users: { [id: string]: UserProfile }) {
+export function saveUsersDb(users: { [id: string]: UserProfile }, syncToFirestore: boolean = true) {
   try {
     localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
+    if (syncToFirestore) {
+      Object.values(users).forEach(u => {
+        if (u && u.id) {
+          saveUserToFirestore(u).catch(() => {});
+        }
+      });
+    }
   } catch (e) {
     console.error('Error saving users db:', e);
   }
