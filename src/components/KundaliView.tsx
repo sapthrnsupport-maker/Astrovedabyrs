@@ -29,6 +29,7 @@ import {
 import { UserProfile, KundaliChartData } from '../types';
 import { calculateVedicKundali, ZODIAC_SIGNS, getDetailedNakshatraAndPanchang, calculateCareerProbability } from '../utils/astrologyEngine';
 import { generateKundaliPDF } from '../utils/pdfGenerator';
+import { LocationInput } from './LocationInput';
 
 interface KundaliViewProps {
   userProfile: UserProfile;
@@ -406,12 +407,11 @@ export const KundaliView: React.FC<KundaliViewProps> = ({
               </div>
 
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Place of Birth (City)</label>
-                <input
-                  type="text"
+                <LocationInput
+                  label="Place of Birth (City / Town)"
                   value={formData.pob}
-                  onChange={(e) => setFormData({ ...formData, pob: e.target.value })}
-                  className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                  onChange={(city) => setFormData({ ...formData, pob: city })}
+                  placeholder="Type city (e.g. New Delhi, Varanasi, London)..."
                 />
               </div>
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sparkles, ShieldCheck, Key, Lock, User, Calendar, Clock, MapPin, Eye, EyeOff, AlertCircle, ArrowRight, UserPlus, LogIn, Mail, CheckCircle2, Copy, Check } from 'lucide-react';
 import { verifyUserPinAsync, createNewUserAsync } from '../utils/minutesManager';
 import { UserProfile } from '../types';
+import { LocationInput } from './LocationInput';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -356,18 +357,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-indigo-200 mb-1">Place of Birth</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
-                    <input
-                      type="text"
-                      value={regPob}
-                      onChange={(e) => setRegPob(e.target.value)}
-                      placeholder="City, State (e.g. Mumbai, India)"
-                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/5 border border-white/10 focus:border-indigo-400 text-white placeholder-gray-500 text-xs outline-none"
-                      required
-                    />
-                  </div>
+                  <LocationInput
+                    label="Place of Birth"
+                    value={regPob}
+                    onChange={(city) => setRegPob(city)}
+                    placeholder="City, State (e.g. New Delhi, Mumbai, Varanasi)..."
+                  />
                 </div>
 
                 <div>
