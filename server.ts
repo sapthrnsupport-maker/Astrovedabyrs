@@ -490,6 +490,58 @@ Keep the tone warm, deeply insightful, encouraging, and accurate to Vedic astrol
   }
 });
 
+// AI Daily Rashifal Endpoint
+app.post("/api/ai/rashifal", async (req, res) => {
+  try {
+    const { rashi, panchang } = req.body;
+    const rashiName = typeof rashi === 'string' ? rashi : rashi?.english || 'Aries';
+    const rashiHindi = rashi?.hindi || rashiName;
+
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({
+        error: "GEMINI_API_KEY is not configured in server environment.",
+      });
+    }
+
+    const prompt = `
+You are Guruji, an expert Vedic Astrologer providing today's authentic Daily Rashifal (Aaj Ka Rashifal) for ${rashiName} (${rashiHindi}).
+Panchang Details for Today:
+- Date: ${panchang?.date || 'Today'}
+- Tithi: ${panchang?.tithi || 'Shukla Paksha'}
+- Nakshatra: ${panchang?.nakshatra || 'Pushya'}
+- Moon Sign: ${panchang?.moonSign || 'Transit Moon'}
+- Rahu Kalam: ${panchang?.rahuKalam || '1:30 PM - 3:00 PM'}
+
+Provide a deep, highly specific, inspiring, and authentic Vedic Rashifal prediction for ${rashiName} (${rashiHindi}).
+Structure with bullet points in markdown:
+
+### ✨ Guruji Daily ${rashiName} (${rashiHindi}) Rashifal & Transit Guidance:
+- **❤️ Love & Relationships:** Specific guidance on romantic alignment, communication, and emotional harmony.
+- **💼 Career & Business:** Precise advice on workplace productivity, key meetings, and business growth.
+- **💰 Wealth & Money:** Financial opportunities, investment warnings during Rahu Kalam, and money flow.
+- **🌿 Health & Energy:** Wellness advice, stamina management, and dietary/mental care.
+- **🌟 Lucky Elements:** Lucky Color, Lucky Number, and Peak Lucky Hours today.
+- **🕉️ Powerful Vedic Remedy (Upay):** A simple, actionable mantra or ritual (e.g. Arghya, Chalisa, Daan).
+
+Keep the language warm, respectful, deeply astrologically accurate to ${rashiName}, and easy to understand.
+`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: prompt,
+      config: {
+        systemInstruction: "You are Guruji, a wise and respected Vedic Astrologer.",
+        temperature: 0.7,
+      },
+    });
+
+    return res.json({ reading: response.text });
+  } catch (error: any) {
+    console.error("Error generating Rashifal:", error);
+    return res.status(500).json({ error: error.message || "Failed to generate Rashifal" });
+  }
+});
+
 function computeMoolank(dob: string): number {
   if (!dob) return 1;
   const parts = dob.split('-');

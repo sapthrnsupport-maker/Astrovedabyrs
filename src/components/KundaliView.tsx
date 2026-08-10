@@ -23,11 +23,14 @@ import {
   Star,
   Sun,
   Moon,
+  Share2,
+  Copy,
+  Check,
   Info,
   X
 } from 'lucide-react';
 import { UserProfile, KundaliChartData } from '../types';
-import { calculateVedicKundali, ZODIAC_SIGNS, getDetailedNakshatraAndPanchang, calculateCareerProbability } from '../utils/astrologyEngine';
+import { calculateVedicKundali, ZODIAC_SIGNS, getDetailedNakshatraAndPanchang, calculateCareerProbability, calculateMoolank, calculateBhagyank } from '../utils/astrologyEngine';
 import { generateKundaliPDF } from '../utils/pdfGenerator';
 import { LocationInput } from './LocationInput';
 
@@ -136,6 +139,31 @@ export const KundaliView: React.FC<KundaliViewProps> = ({
   const [aiReading, setAiReading] = useState<string>('');
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [pdfSuccessToast, setPdfSuccessToast] = useState(false);
+  const [copyToast, setCopyToast] = useState(false);
+
+  const handleCopyKundaliSummary = () => {
+    const moolankVal = calculateMoolank(formData.dob);
+    const bhagyankVal = calculateBhagyank(formData.dob);
+    const summaryText = `✨ AstroVeda AI Kundali Report for ${formData.name} ✨
+• Moon Sign (Rashi): ${kundaliData.moonRashi} (${kundaliData.moonRashiHindi})
+• Ascendant (Lagna): ${kundaliData.lagnaRashi} (${kundaliData.lagnaRashiHindi})
+• Janma Nakshatra: ${nakshatraDetail.nakshatraName} (${nakshatraDetail.nakshatraHindi}) - Pada ${nakshatraDetail.pada}
+• Moolank (Driver): ${moolankVal} | Bhagyank (Conductor): ${bhagyankVal}
+• Current Mahadasha: ${kundaliData.dasha.currentMahadasha} - Antardasha: ${kundaliData.dasha.currentAntardasha} (until ${kundaliData.dasha.endDate})
+• Birth Place: ${formData.pob}
+
+Verified by AstroVeda AI Kundali - https://astroveda.app`;
+
+    navigator.clipboard.writeText(summaryText);
+    setCopyToast(true);
+    setTimeout(() => setCopyToast(false), 3500);
+  };
+
+  const handleLoadSampleProfile = (sample: { name: string; dob: string; tob: string; pob: string; gender: 'male' | 'female' | 'other' }) => {
+    setFormData(sample);
+    setIsUnknownTime(false);
+    onUpdateProfile(sample);
+  };
 
   const handleToggleUnknownTime = (checked: boolean) => {
     setIsUnknownTime(checked);
@@ -315,6 +343,15 @@ export const KundaliView: React.FC<KundaliViewProps> = ({
 
           <div className="flex flex-wrap items-center gap-2">
             <button
+              onClick={handleCopyKundaliSummary}
+              className="flex items-center justify-center gap-2 px-3.5 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 font-bold text-sm hover:bg-amber-500/20 active:scale-95 transition-all cursor-pointer shadow-md"
+              title="Copy formatted Kundali summary for WhatsApp or social sharing"
+            >
+              <Share2 className="w-4 h-4 text-amber-300" />
+              <span>Share Summary</span>
+            </button>
+
+            <button
               onClick={handleDownloadPDF}
               className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white font-bold text-sm hover:bg-white/20 active:scale-95 transition-all cursor-pointer shadow-md"
             >
@@ -334,6 +371,16 @@ export const KundaliView: React.FC<KundaliViewProps> = ({
           </div>
         </div>
       </div>
+
+      {copyToast && (
+        <div className="p-4 bg-amber-500/20 backdrop-blur-md border border-amber-500/40 rounded-2xl text-xs text-amber-200 flex items-center justify-between shadow-xl animate-fade-in">
+          <div className="flex items-center gap-2">
+            <Check className="w-5 h-5 text-amber-400" />
+            <span>Kundali Summary copied to clipboard! Ready to paste on WhatsApp or social media.</span>
+          </div>
+          <span className="text-[10px] font-mono text-amber-300">Text Copied</span>
+        </div>
+      )}
 
       {pdfSuccessToast && (
         <div className="p-4 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/40 rounded-2xl text-xs text-emerald-200 flex items-center justify-between shadow-xl animate-fade-in">
@@ -357,6 +404,30 @@ export const KundaliView: React.FC<KundaliViewProps> = ({
                 <span>Birth Details</span>
               </h3>
               <span className="text-[10px] text-gray-400 font-mono">ID: {userProfile.id}</span>
+            </div>
+
+            {/* Quick Demo Sample Kundalis */}
+            <div className="p-2.5 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 space-y-1.5">
+              <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider block flex items-center gap-1">
+                <Zap className="w-3 h-3 text-amber-400" />
+                <span>Quick Test Kundali Presets</span>
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleLoadSampleProfile({ name: 'Shri Krishna (Sample)', dob: '1998-08-15', tob: '00:00', pob: 'Varanasi, Uttar Pradesh, India', gender: 'male' })}
+                  className="px-2 py-1 rounded-lg bg-white/5 hover:bg-indigo-500/20 border border-white/10 text-[10px] text-gray-300 hover:text-white transition-all text-left truncate cursor-pointer"
+                >
+                  ⚡ Varanasi (1998)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleLoadSampleProfile({ name: 'Aarav Sharma (Sample)', dob: '2000-05-10', tob: '08:30', pob: 'New Delhi, Delhi, India', gender: 'male' })}
+                  className="px-2 py-1 rounded-lg bg-white/5 hover:bg-indigo-500/20 border border-white/10 text-[10px] text-gray-300 hover:text-white transition-all text-left truncate cursor-pointer"
+                >
+                  ⚡ New Delhi (2000)
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleFormSubmit} className="space-y-3">

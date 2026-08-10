@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Heart, Sparkles, User, RefreshCw, CheckCircle, AlertTriangle, Hash, Briefcase, Activity, Compass, Shield, Flame, Clock, Calendar, Gift, Zap } from 'lucide-react';
 import { UserProfile, AshtaKootaScore } from '../types';
+import { LocationInput } from './LocationInput';
 import { calculateAshtaKoota, calculateMoolank, calculateBhagyank, calculateNumerologyCompatibility, calculateCrushProposalChance, calculatePartnerCareerCompatibility } from '../utils/astrologyEngine';
 import { generateClientFallbackMatchReport } from '../utils/aiFallbackEngine';
 
@@ -39,6 +40,7 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
     name: userProfile.name || 'Rahul',
     dob: userProfile.dob || '1995-05-15',
     tob: userProfile.tob || '10:30',
+    pob: userProfile.pob || 'New Delhi, Delhi, India',
     rashi: 'Taurus (Vrishabh)',
     careerGoal: 'Software & IT / Tech'
   });
@@ -47,6 +49,7 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
     name: 'Ananya',
     dob: '1997-08-22',
     tob: '14:15',
+    pob: 'Varanasi, Uttar Pradesh, India',
     rashi: 'Virgo (Kanya)',
     careerGoal: 'Business & Startup'
   });
@@ -416,7 +419,15 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
               </div>
             </div>
             <div>
-              <label className="text-xs text-gray-400 block mb-1">Professional Goal / Industry Field</label>
+              <LocationInput
+                label="Partner 1 Place of Birth"
+                value={partner1.pob}
+                onChange={(city) => setPartner1({ ...partner1, pob: city })}
+                placeholder="Type city (e.g. New Delhi, Mumbai)..."
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Partner 1 Professional Goal / Industry Field</label>
               <select
                 value={partner1.careerGoal}
                 onChange={(e) => setPartner1({ ...partner1, careerGoal: e.target.value })}
@@ -480,7 +491,15 @@ export const CompatibilityView: React.FC<CompatibilityViewProps> = ({
               </div>
             </div>
             <div>
-              <label className="text-xs text-gray-400 block mb-1">Professional Goal / Industry Field</label>
+              <LocationInput
+                label="Partner 2 Place of Birth"
+                value={partner2.pob}
+                onChange={(city) => setPartner2({ ...partner2, pob: city })}
+                placeholder="Type city (e.g. Varanasi, Lucknow)..."
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Partner 2 Professional Goal / Industry Field</label>
               <select
                 value={partner2.careerGoal}
                 onChange={(e) => setPartner2({ ...partner2, careerGoal: e.target.value })}

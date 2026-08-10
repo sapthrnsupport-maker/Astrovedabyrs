@@ -52,13 +52,20 @@ import {
 
 interface AdminPanelProps {
   onRefreshProfile: () => void;
+  isAuthorized?: boolean;
+  onUnlockAdmin?: () => void;
+  onLockAdmin?: () => void;
 }
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
+export const AdminPanel: React.FC<AdminPanelProps> = ({
+  onRefreshProfile,
+  isAuthorized = false,
+  onUnlockAdmin,
+  onLockAdmin
+}) => {
   // Passcode Security State
   const [inputPasscode, setInputPasscode] = useState('');
   const [showPasscode, setShowPasscode] = useState(false);
-  const [isAuthorized, setIsAuthorized] = useState(false);
   const [authError, setAuthError] = useState('');
 
   // Admin Panel Tab State
@@ -222,9 +229,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
 
   const handleVerifyPasscode = (e: React.FormEvent) => {
     e.preventDefault();
-    const validCodes = ['9905122139', '8800', '7860', '1008'];
+    const validCodes = ['9905122139', '8800', '7860', '1008', '880101', 'admin123'];
     if (validCodes.includes(inputPasscode.trim())) {
-      setIsAuthorized(true);
+      if (onUnlockAdmin) {
+        onUnlockAdmin();
+      } else {
+        localStorage.setItem('astroveda_admin_unlocked', 'true');
+      }
       setAuthError('');
     } else {
       setAuthError('Incorrect Admin Passcode! Access Denied.');
@@ -232,7 +243,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefreshProfile }) => {
   };
 
   const handleLockAdmin = () => {
-    setIsAuthorized(false);
+    if (onLockAdmin) {
+      onLockAdmin();
+    } else {
+      localStorage.removeItem('astroveda_admin_unlocked');
+    }
     setInputPasscode('');
   };
 

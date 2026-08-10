@@ -23,6 +23,7 @@ import { CompatibilityView } from './components/CompatibilityView';
 import { DailyHoroscope } from './components/DailyHoroscope';
 import { AdminPanel } from './components/AdminPanel';
 import { GurujiFrontShowcase } from './components/GurujiFrontShowcase';
+import astroVedaLogo from './assets/images/astroveda_logo_1786261690560.jpg';
 import { PalmReadingView } from './components/PalmReadingView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Sparkles, Heart, AlertTriangle, Zap, Clock, LogIn, UserPlus } from 'lucide-react';
@@ -34,6 +35,22 @@ export default function App() {
   const [modalMode, setModalMode] = useState<'USER_BUY' | 'ADMIN_GRANT'>('USER_BUY');
   const [isConsultationActive, setIsConsultationActive] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(() => {
+    return localStorage.getItem('astroveda_admin_unlocked') === 'true';
+  });
+
+  const handleUnlockAdmin = () => {
+    setIsAdminUnlocked(true);
+    localStorage.setItem('astroveda_admin_unlocked', 'true');
+    setActiveTab('admin');
+  };
+
+  const handleLockAdmin = () => {
+    setIsAdminUnlocked(false);
+    localStorage.removeItem('astroveda_admin_unlocked');
+    setActiveTab('kundali');
+  };
 
   // Real-time automatic background synchronization across all devices and Firestore
   useEffect(() => {
@@ -138,24 +155,37 @@ export default function App() {
         onOpenRechargeModal={handleOpenRechargeModal}
         isConsultationActive={isConsultationActive}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        isAdminUnlocked={isAdminUnlocked}
+        onUnlockAdmin={handleUnlockAdmin}
+        onLockAdmin={handleLockAdmin}
       />
 
       {/* Main App Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 z-10">
-        {/* Welcome Sign In Callout when not logged in */}
-        {!userProfile && (
+        {/* Welcome Sign In Callout when not logged in (Only shown in User Mode) */}
+        {activeTab !== 'admin' && !userProfile && (
           <div className="mb-8 p-6 rounded-3xl bg-gradient-to-r from-indigo-950/90 via-purple-950/80 to-slate-900/90 border border-indigo-500/30 shadow-2xl shadow-indigo-950/50 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="space-y-1 text-center md:text-left">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-xs font-semibold">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Welcome to AstroVeda AI</span>
+            <div className="flex items-center gap-4 text-center md:text-left flex-col md:flex-row">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-amber-400 p-0.5 shadow-xl shadow-indigo-500/30 shrink-0 overflow-hidden">
+                <img
+                  src={astroVedaLogo}
+                  alt="AstroVeda Logo"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover rounded-[14px]"
+                />
               </div>
-              <h3 className="text-xl font-bold font-serif text-white">
-                Sign In to access your unique Kundali & Minutes Balance
-              </h3>
-              <p className="text-xs text-indigo-200/80 max-w-xl">
-                Aap apna User ID & Security PIN dalkar login karein, ya fir naya account banayein. Har naye account ko apna unique ID aur secure minutes balance milta hai.
-              </p>
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-xs font-semibold">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Welcome to AstroVeda AI</span>
+                </div>
+                <h3 className="text-xl font-bold font-serif text-white">
+                  Sign In to access your unique Kundali & Minutes Balance
+                </h3>
+                <p className="text-xs text-indigo-200/80 max-w-xl">
+                  Aap apna User ID & Security PIN dalkar login karein, ya fir naya account banayein. Har naye account ko apna unique ID aur secure minutes balance milta hai.
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-3 shrink-0">
@@ -170,8 +200,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Zero Minutes Warning Notification Banner */}
-        {userProfile && userProfile.availableMinutes <= 0 && (
+        {/* Zero Minutes Warning Notification Banner (Only shown in User Mode) */}
+        {activeTab !== 'admin' && userProfile && userProfile.availableMinutes <= 0 && (
           <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-rose-950/80 via-amber-950/70 to-purple-950/80 border border-rose-500/50 shadow-2xl shadow-rose-950/50 flex flex-col sm:flex-row items-center justify-between gap-4 animate-pulse">
             <div className="flex items-center gap-3 text-left">
               <div className="p-2.5 bg-rose-500/20 border border-rose-400/40 rounded-2xl text-rose-300 shrink-0 shadow-lg">
@@ -196,8 +226,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Low Balance Warning Banner (1 or 2 Minutes Left) */}
-        {userProfile && userProfile.availableMinutes > 0 && userProfile.availableMinutes <= 2 && (
+        {/* Low Balance Warning Banner (1 or 2 Minutes Left) (Only shown in User Mode) */}
+        {activeTab !== 'admin' && userProfile && userProfile.availableMinutes > 0 && userProfile.availableMinutes <= 2 && (
           <div className="mb-6 p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 text-xs">
               <Clock className="w-4 h-4 text-amber-400 shrink-0" />
@@ -289,7 +319,14 @@ export default function App() {
                 />
               )}
 
-              {activeTab === 'admin' && <AdminPanel onRefreshProfile={handleRefreshProfile} />}
+              {activeTab === 'admin' && (
+                <AdminPanel
+                  onRefreshProfile={handleRefreshProfile}
+                  isAuthorized={isAdminUnlocked}
+                  onUnlockAdmin={handleUnlockAdmin}
+                  onLockAdmin={handleLockAdmin}
+                />
+              )}
             </ErrorBoundary>
           </motion.div>
         </AnimatePresence>
